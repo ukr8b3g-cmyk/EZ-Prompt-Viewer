@@ -1,5 +1,8 @@
 # EZ Prompt Viewer
 
+<img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/08f87802-4766-4c90-80f1-347f6dd9a0f4" />
+
+
 EZ Prompt Viewer は、画像ファイルに保存された ComfyUI / A1111 のプロンプトメタデータを確認するための Windows デスクトップアプリです。
 
 画像はローカル環境で処理されます。
