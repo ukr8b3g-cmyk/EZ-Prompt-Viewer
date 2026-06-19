@@ -1,4 +1,6 @@
 # EZ Prompt Viewer
+<img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/f9416ab2-c09c-4e81-a45d-0ebb464fe1fe" />
+
 
 [日本語 README](README_ja.md)
 
