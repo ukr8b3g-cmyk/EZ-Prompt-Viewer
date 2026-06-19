@@ -4,6 +4,12 @@ EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 pr
 
 Images are processed locally on your machine.
 
+## Download
+
+Download the latest Windows installer from:
+
+[EZ Prompt Viewer v1.0.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.0)
+
 ## Supported Formats
 
 - AVIF
