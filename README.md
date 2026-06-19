@@ -132,12 +132,6 @@ Build the Windows installer:
 npm run build
 ```
 
-Latest generated installer in this workspace:
-
-```text
-D:\Codex\ComfyUI\avif-prompt-viewer-app\dist-release-20260619-185612\EZ Prompt Viewer Setup.exe
-```
-
 ## Notes
 
 - The app is intended for local Windows desktop use.
