@@ -110,15 +110,14 @@ For ComfyUI workflows, using [ComfyUI-save-webp-meta-node](https://github.com/uk
 This note applies specifically to WebP files saved with that node. Confirmed sample files include workflows such as:
 
 - SDXL
-- Illustrious XL
-- Anime-style workflows
+- Illustrious-XL
+- Anima
 - Qwen-Image 2512
 - Qwen-Image-Edit 2511
-- ZIT / Z Image workflows, including `z-image-turbo` and `z-image-base`
-- `Ernie-Image-Turbo`
-- `Ernie-Image`
+- ZIT / Z-Image 
+- Ernie-Image / Turbo
 - Microsoft Lens
-- Flux / Klein workflows
+- Flux.Klein
 
 Supported metadata may include positive prompts, negative prompts, generation settings, ComfyUI workflow data, model names, seeds, steps, sampler information, image size, and related prompt graph information.
 
