@@ -1,0 +1,3311 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EZ Prompt Viewer</title>
+  <style>
+    :root {
+      --bg: #25252b;
+      --surface: #2b2c32;
+      --surface-2: #33353c;
+      --surface-3: #3d4049;
+      --text: #d9dbe2;
+      --muted: #a1a4b0;
+      --quiet: #7e8290;
+      --line: #3f424c;
+      --accent: #6cb7f7;
+      --accent-2: #7cc8ff;
+      --warn: #e4c86e;
+      --danger: #ff8f8f;
+      --shadow: 0 18px 60px rgba(0, 0, 0, .28);
+      --panel-bg: #282930;
+      --header-bg: #282930;
+      --drop-bg: #343846;
+      --block-bg: #282930;
+      --soft-bg: #303848;
+      --image-bg: #1f2026;
+      --grid-line: rgba(255, 255, 255, .035);
+    }
+
+    body[data-theme="light"] {
+      --bg: #edf0ea;
+      --surface: #fbfcf7;
+      --surface-2: #eef2e9;
+      --surface-3: #e2e9dc;
+      --text: #1d241d;
+      --muted: #556052;
+      --quiet: #7a8576;
+      --line: #cbd3c4;
+      --accent: #3b8a54;
+      --accent-2: #327e7a;
+      --warn: #8a6b1f;
+      --shadow: 0 18px 48px rgba(69, 78, 62, .16);
+      --panel-bg: rgba(251, 252, 247, .96);
+      --header-bg: rgba(251, 252, 247, .96);
+      --drop-bg: rgba(243, 247, 238, .96);
+      --block-bg: rgba(255, 255, 250, .9);
+      --soft-bg: rgba(238, 242, 233, .78);
+      --image-bg: #f8faf4;
+      --grid-line: rgba(52, 66, 50, .08);
+    }
+
+    body[data-theme="gray"] {
+      --bg: #2d3138;
+      --surface: #343841;
+      --surface-2: #3c414b;
+      --surface-3: #484f5b;
+      --text: #e6e9ef;
+      --muted: #b1b8c3;
+      --quiet: #8e97a5;
+      --line: #505867;
+      --accent: #84b8ff;
+      --accent-2: #a1cbff;
+      --warn: #e2c472;
+      --danger: #f19393;
+      --shadow: 0 18px 54px rgba(0, 0, 0, .24);
+      --panel-bg: #32363f;
+      --header-bg: #32363f;
+      --drop-bg: #3a404d;
+      --block-bg: #32363f;
+      --soft-bg: #394456;
+      --image-bg: #262a31;
+      --grid-line: rgba(255, 255, 255, .03);
+    }
+
+    body[data-theme="neon"] {
+      --bg: #12061e;
+      --surface: #1a0d2a;
+      --surface-2: #24133a;
+      --surface-3: #331a52;
+      --text: #f8f1ff;
+      --muted: #d7c1f0;
+      --quiet: #b094d6;
+      --line: #52307f;
+      --accent: #37ffd5;
+      --accent-2: #ff4de8;
+      --warn: #ffe36d;
+      --danger: #ff85b2;
+      --shadow: 0 18px 60px rgba(10, 0, 22, .42);
+      --panel-bg: rgba(26, 13, 42, .95);
+      --header-bg: rgba(26, 13, 42, .95);
+      --drop-bg: rgba(36, 19, 58, .96);
+      --block-bg: rgba(26, 13, 42, .95);
+      --soft-bg: rgba(51, 26, 82, .58);
+      --image-bg: #160922;
+      --grid-line: rgba(255, 255, 255, .035);
+    }
+
+    body[data-theme="cyberpunk"] {
+      --bg: #0e1119;
+      --surface: #151a28;
+      --surface-2: #1f2540;
+      --surface-3: #293251;
+      --text: #f7efbc;
+      --muted: #d8cda0;
+      --quiet: #af9f74;
+      --line: #3d4b75;
+      --accent: #00eeff;
+      --accent-2: #ffd84d;
+      --warn: #ffd84d;
+      --danger: #ff708c;
+      --shadow: 0 18px 60px rgba(0, 0, 0, .36);
+      --panel-bg: rgba(21, 26, 40, .95);
+      --header-bg: rgba(21, 26, 40, .95);
+      --drop-bg: rgba(28, 34, 55, .96);
+      --block-bg: rgba(21, 26, 40, .95);
+      --soft-bg: rgba(0, 238, 255, .09);
+      --image-bg: #101521;
+      --grid-line: rgba(0, 238, 255, .05);
+    }
+
+    body[data-theme="synthwave"] {
+      --bg: #160d26;
+      --surface: #1d1334;
+      --surface-2: #271b43;
+      --surface-3: #36235b;
+      --text: #f7f2ff;
+      --muted: #cbbce6;
+      --quiet: #a08ec1;
+      --line: #4a3370;
+      --accent: #ff6fd9;
+      --accent-2: #87f7ff;
+      --warn: #ffd776;
+      --danger: #ff7ea0;
+      --shadow: 0 18px 60px rgba(8, 0, 20, .42);
+      --panel-bg: rgba(29, 19, 52, .95);
+      --header-bg: rgba(29, 19, 52, .95);
+      --drop-bg: rgba(39, 27, 67, .96);
+      --block-bg: rgba(29, 19, 52, .95);
+      --soft-bg: rgba(135, 247, 255, .08);
+      --image-bg: #170e28;
+      --grid-line: rgba(255, 255, 255, .035);
+    }
+
+    body[data-theme="black"] {
+      --bg: #000000;
+      --surface: #090909;
+      --surface-2: #111111;
+      --surface-3: #1a1a1a;
+      --text: #ffffff;
+      --muted: #d8d8d8;
+      --quiet: #a8a8a8;
+      --line: #2c2c2c;
+      --accent: #ffffff;
+      --accent-2: #f0f0f0;
+      --warn: #ffd75e;
+      --danger: #ff6666;
+      --shadow: 0 18px 62px rgba(0, 0, 0, .55);
+      --panel-bg: #050505;
+      --header-bg: #050505;
+      --drop-bg: #101010;
+      --block-bg: #050505;
+      --soft-bg: #141414;
+      --image-bg: #000000;
+      --grid-line: rgba(255, 255, 255, .045);
+    }
+
+    body[data-theme="crimson"] {
+      --bg: #190005;
+      --surface: #2a0610;
+      --surface-2: #3b0a17;
+      --surface-3: #551020;
+      --text: #fff3f5;
+      --muted: #ffc4cc;
+      --quiet: #e78b98;
+      --line: #7a1a2d;
+      --accent: #ff3158;
+      --accent-2: #ffd166;
+      --warn: #ffd166;
+      --danger: #ff7a18;
+      --shadow: 0 18px 70px rgba(56, 0, 13, .52);
+      --panel-bg: rgba(42, 6, 16, .96);
+      --header-bg: rgba(42, 6, 16, .96);
+      --drop-bg: rgba(68, 8, 21, .96);
+      --block-bg: rgba(42, 6, 16, .96);
+      --soft-bg: rgba(255, 49, 88, .12);
+      --image-bg: #120004;
+      --grid-line: rgba(255, 255, 255, .04);
+    }
+
+    body[data-theme="inferno"] {
+      --bg: #170700;
+      --surface: #2d1202;
+      --surface-2: #431b03;
+      --surface-3: #652705;
+      --text: #fff6e6;
+      --muted: #ffd39a;
+      --quiet: #eba766;
+      --line: #88410b;
+      --accent: #ff7a18;
+      --accent-2: #ffe45e;
+      --warn: #ffe45e;
+      --danger: #ff2e4d;
+      --shadow: 0 18px 70px rgba(63, 18, 0, .5);
+      --panel-bg: rgba(45, 18, 2, .96);
+      --header-bg: rgba(45, 18, 2, .96);
+      --drop-bg: rgba(76, 29, 3, .96);
+      --block-bg: rgba(45, 18, 2, .96);
+      --soft-bg: rgba(255, 122, 24, .14);
+      --image-bg: #120500;
+      --grid-line: rgba(255, 255, 255, .04);
+    }
+
+    body[data-theme="radioactive"] {
+      --bg: #061100;
+      --surface: #0e2100;
+      --surface-2: #163400;
+      --surface-3: #214d00;
+      --text: #f4ffe8;
+      --muted: #caff8f;
+      --quiet: #9ed864;
+      --line: #3b7a16;
+      --accent: #a8ff1a;
+      --accent-2: #00ffb3;
+      --warn: #f7ff4d;
+      --danger: #ff4f4f;
+      --shadow: 0 18px 70px rgba(16, 53, 0, .48);
+      --panel-bg: rgba(14, 33, 0, .96);
+      --header-bg: rgba(14, 33, 0, .96);
+      --drop-bg: rgba(22, 52, 0, .96);
+      --block-bg: rgba(14, 33, 0, .96);
+      --soft-bg: rgba(168, 255, 26, .12);
+      --image-bg: #050c00;
+      --grid-line: rgba(255, 255, 255, .04);
+    }
+
+    body[data-theme="candy"] {
+      --bg: #2b001d;
+      --surface: #3d082e;
+      --surface-2: #551042;
+      --surface-3: #71185b;
+      --text: #fff3fb;
+      --muted: #ffc8ec;
+      --quiet: #ee94ce;
+      --line: #8f2a74;
+      --accent: #ff4fbc;
+      --accent-2: #55f7ff;
+      --warn: #ffe86b;
+      --danger: #ff7a70;
+      --shadow: 0 18px 70px rgba(43, 0, 29, .48);
+      --panel-bg: rgba(61, 8, 46, .96);
+      --header-bg: rgba(61, 8, 46, .96);
+      --drop-bg: rgba(85, 16, 66, .96);
+      --block-bg: rgba(61, 8, 46, .96);
+      --soft-bg: rgba(85, 247, 255, .1);
+      --image-bg: #240018;
+      --grid-line: rgba(255, 255, 255, .04);
+    }
+
+    body[data-theme="yellow"] {
+      --bg: #1c1700;
+      --surface: #302700;
+      --surface-2: #473a00;
+      --surface-3: #635100;
+      --text: #fff9d6;
+      --muted: #f4df87;
+      --quiet: #c7ad47;
+      --line: #7e6910;
+      --accent: #ffe24a;
+      --accent-2: #fff38a;
+      --warn: #ffef70;
+      --danger: #ff6f61;
+      --shadow: 0 18px 70px rgba(56, 45, 0, .46);
+      --panel-bg: rgba(48, 39, 0, .96);
+      --header-bg: rgba(48, 39, 0, .96);
+      --drop-bg: rgba(71, 58, 0, .96);
+      --block-bg: rgba(48, 39, 0, .96);
+      --soft-bg: rgba(255, 226, 74, .13);
+      --image-bg: #141000;
+      --grid-line: rgba(255, 255, 255, .045);
+    }
+
+    body[data-theme="blue"] {
+      --bg: #00111f;
+      --surface: #061e34;
+      --surface-2: #0a2c4b;
+      --surface-3: #113d66;
+      --text: #eef8ff;
+      --muted: #b8dcff;
+      --quiet: #82aed6;
+      --line: #235985;
+      --accent: #42b8ff;
+      --accent-2: #8ee8ff;
+      --warn: #ffd96a;
+      --danger: #ff7a92;
+      --shadow: 0 18px 70px rgba(0, 21, 43, .48);
+      --panel-bg: rgba(6, 30, 52, .96);
+      --header-bg: rgba(6, 30, 52, .96);
+      --drop-bg: rgba(10, 44, 75, .96);
+      --block-bg: rgba(6, 30, 52, .96);
+      --soft-bg: rgba(66, 184, 255, .12);
+      --image-bg: #000c17;
+      --grid-line: rgba(255, 255, 255, .04);
+    }
+
+    body[data-theme="christmas"] {
+      --bg: #06140b;
+      --surface: #0d2716;
+      --surface-2: #153a22;
+      --surface-3: #1e5430;
+      --text: #fff8f0;
+      --muted: #d9f0d0;
+      --quiet: #a8c99b;
+      --line: #386b43;
+      --accent: #e63946;
+      --accent-2: #f7f3d1;
+      --warn: #ffd166;
+      --danger: #ff6b6b;
+      --shadow: 0 18px 70px rgba(0, 35, 12, .48);
+      --panel-bg: rgba(13, 39, 22, .96);
+      --header-bg: rgba(13, 39, 22, .96);
+      --drop-bg: rgba(21, 58, 34, .96);
+      --block-bg: rgba(13, 39, 22, .96);
+      --soft-bg: rgba(230, 57, 70, .12);
+      --image-bg: #041008;
+      --grid-line: rgba(255, 255, 255, .045);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 255, 255, .02) 1px, transparent 1px),
+        radial-gradient(circle at 20% 0%, rgba(108, 183, 247, .10), transparent 32%),
+        radial-gradient(circle at 90% 18%, rgba(124, 200, 255, .08), transparent 30%),
+        var(--bg);
+      background-size: 36px 36px, 36px 36px, auto, auto, auto;
+      color: var(--text);
+      font-family: "Yu Gothic UI", "Meiryo", "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+
+    main {
+      width: min(1220px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 12px 0;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--header-bg);
+      box-shadow: var(--shadow);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+
+    body[data-theme="light"] .button,
+    body[data-theme="light"] .theme-select {
+      background: #f8faf4;
+    }
+
+    body[data-theme="light"] .drop.drag {
+      background: #e9f3e5;
+    }
+
+    body[data-theme="light"] .chip {
+      background: rgba(50, 126, 122, .1);
+      color: #226a66;
+      border-color: rgba(50, 126, 122, .24);
+    }
+
+    body[data-theme="light"] .lightbox {
+      background: rgba(238, 242, 233, .9);
+    }
+
+    .theme-select,
+    .ui-select {
+      min-height: 36px;
+      width: clamp(118px, 15vw, 205px);
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    h1 {
+      font-size: 22px;
+      line-height: 1.2;
+      margin: 0 0 6px;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .drop {
+      border: 1px dashed rgba(151, 190, 255, .52);
+      background: var(--drop-bg);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 86px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      transition: border-color .15s, background .15s;
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, .04),
+        0 8px 24px rgba(0, 0, 0, .14);
+    }
+
+    body.has-file .drop {
+      min-height: 46px;
+      padding: 8px 12px;
+      place-items: center;
+    }
+
+    body.has-file .drop > div {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    body.has-file .drop .drop-emoji,
+    body.has-file .drop .drop-meta {
+      display: none;
+    }
+
+    body.has-file .drop .drop-title {
+      margin-bottom: 0;
+      font-size: 13px;
+    }
+
+    body.has-file .drop .sub {
+      font-size: 11px;
+    }
+
+    .drop.drag {
+      border-color: var(--accent);
+      background: #3a4460;
+    }
+
+    .folder-panel {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-bg);
+      padding: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .folder-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .folder-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+
+    .folder-controls input {
+      width: 150px;
+      accent-color: var(--accent-2);
+    }
+
+    .folder-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--folder-thumb-size, 74px), 1fr));
+      gap: 8px;
+      max-height: 150px;
+      overflow: auto;
+    }
+
+    .folder-thumb {
+      display: grid;
+      gap: 4px;
+      padding: 5px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--block-bg);
+      color: var(--muted);
+      cursor: pointer;
+      text-align: left;
+      font-size: 10px;
+    }
+
+    .folder-thumb:hover {
+      border-color: var(--accent-2);
+      color: var(--text);
+    }
+
+    .folder-thumb.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+      color: var(--text);
+    }
+
+    .folder-thumb img {
+      width: 100%;
+      aspect-ratio: 1;
+      max-height: none;
+      object-fit: cover;
+      border-radius: 4px;
+      background: var(--image-bg);
+    }
+
+    .folder-thumb span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .image-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-top: 1px solid var(--line);
+      background: var(--block-bg);
+    }
+
+    .image-nav button {
+      min-width: 42px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      color: var(--text);
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      padding: 7px 10px;
+    }
+
+    .image-nav button:disabled {
+      opacity: .35;
+      cursor: default;
+    }
+
+    .image-nav span {
+      min-width: 70px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .slide-interval {
+      width: 54px;
+      min-height: 31px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 0 6px;
+      font-size: 12px;
+    }
+
+    .drop-emoji {
+      font-size: 22px;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+
+    .drop-title {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .drop-meta {
+      margin-top: 4px;
+      color: var(--quiet);
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    input[type="file"] { display: none; }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .button:hover { border-color: var(--accent); }
+
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      min-width: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: linear-gradient(180deg, var(--surface-3), var(--surface-2));
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .icon-button:hover { border-color: var(--accent); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 340px) 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .preview, .content {
+      background: var(--panel-bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .preview {
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .image-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 220px;
+      background:
+        linear-gradient(45deg, var(--grid-line) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--grid-line) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--grid-line) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--grid-line) 75%),
+        var(--image-bg);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+      position: relative;
+    }
+
+    img {
+      max-width: 100%;
+      max-height: 420px;
+      object-fit: contain;
+      display: block;
+    }
+
+    #preview {
+      cursor: zoom-in;
+    }
+
+    .image-hint {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: rgba(10, 12, 18, .55);
+      border: 1px solid rgba(255, 255, 255, .08);
+      color: var(--muted);
+      font-size: 11px;
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 26px;
+      background: rgba(5, 6, 5, .88);
+      backdrop-filter: blur(6px);
+    }
+
+    .lightbox.open {
+      display: flex;
+    }
+
+    .lightbox img {
+      max-width: 96vw;
+      max-height: 92vh;
+      border-radius: 8px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+      cursor: zoom-out;
+    }
+
+    .lightbox-close {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-bg);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .about-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, .64);
+      backdrop-filter: blur(8px);
+    }
+
+    .about-overlay.open {
+      display: flex;
+    }
+
+    .about-dialog {
+      width: min(440px, calc(100vw - 40px));
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #202020;
+      color: #f5f5f5;
+      box-shadow: 0 28px 90px rgba(0, 0, 0, .58);
+    }
+
+    .about-titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 34px;
+      padding: 0 10px 0 12px;
+      border-bottom: 1px solid #3b3b3b;
+      background: #485358;
+      color: #ffffff;
+      font-size: 13px;
+    }
+
+    .about-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .about-mark {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #ffffff, #8fb8ff 24%, #586bff 58%, #3942a9);
+      box-shadow: 0 0 12px rgba(120, 150, 255, .55);
+    }
+
+    .about-close {
+      border: 0;
+      background: transparent;
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 1;
+      padding: 2px 0;
+    }
+
+    .about-body {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      min-height: 218px;
+      padding: 28px 28px 24px;
+      text-align: center;
+      background: #202020;
+    }
+
+    .about-character {
+      width: 112px;
+      height: 112px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      border-radius: 8px;
+    }
+
+    .about-name {
+      margin: 0;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .about-meta,
+    .about-copy {
+      margin: 0;
+      color: #dddddd;
+      font-size: 12px;
+    }
+
+    .about-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 12px;
+      border-top: 1px solid #3b3b3b;
+      background: #252525;
+    }
+
+    .about-ok {
+      min-width: 80px;
+      min-height: 34px;
+      border: 1px solid #2f88ff;
+      border-radius: 4px;
+      background: #2b2b2b;
+      color: #ffffff;
+      cursor: pointer;
+    }
+
+    .file-info {
+      padding: 9px 10px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      background: var(--block-bg);
+    }
+
+    .preview-stack {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border-top: 1px solid var(--line);
+      background: var(--panel-bg);
+    }
+
+    .content {
+      padding: 12px;
+    }
+
+    .summary-box {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--block-bg);
+      padding: 8px;
+    }
+
+    .summary-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .summary-head h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .summary-head h2::before {
+      content: "▾";
+      display: inline-block;
+      width: 15px;
+      color: var(--accent-2);
+    }
+
+    .summary-body {
+      padding-top: 6px;
+    }
+
+    .summary-box.collapsed .summary-head {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .summary-box.collapsed .summary-head h2::before {
+      content: "▸";
+    }
+
+    .summary-box.collapsed .summary-body {
+      display: none;
+    }
+
+    .status {
+      padding: 5px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-size: 12px;
+      background: var(--soft-bg);
+    }
+
+    .status.good { border-color: rgba(148, 211, 127, .48); color: var(--accent); }
+    .status.warn { border-color: rgba(243, 201, 105, .52); color: var(--warn); }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      background: var(--image-bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      max-height: 62vh;
+      overflow: auto;
+    }
+
+    .prompt-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .generation-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--text);
+      padding: 2px 2px;
+      flex-wrap: wrap;
+    }
+
+    .generation-head h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+    }
+
+    .copy-all-link {
+      border: 1px solid rgba(108, 183, 247, .58);
+      border-radius: 6px;
+      background: linear-gradient(180deg, rgba(56, 117, 176, .34), rgba(26, 67, 111, .34));
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0;
+      min-height: 26px;
+      padding: 4px 9px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+
+    .copy-all-link:hover {
+      border-color: var(--accent-2);
+      color: #ffffff;
+      background: linear-gradient(180deg, rgba(70, 147, 220, .48), rgba(28, 82, 138, .48));
+    }
+
+    .generation-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .toggle-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .toggle-inline input {
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .prompt-block {
+      display: grid;
+      gap: 5px;
+      padding-top: 2px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--block-bg);
+      padding: 7px 8px;
+      border-left: 3px solid rgba(108, 183, 247, .66);
+    }
+
+    .prompt-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .prompt-row h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .prompt-row h2::before {
+      content: "▾";
+      display: inline-block;
+      width: 15px;
+      color: var(--accent-2);
+    }
+
+    .prompt-block.collapsed .prompt-row {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .prompt-block.collapsed .prompt-row h2::before {
+      content: "▸";
+    }
+
+    .prompt-block.collapsed .collapsible-body {
+      display: none;
+    }
+
+    .copy-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .copy-btn {
+      border: 1px solid rgba(108, 183, 247, .48);
+      background: linear-gradient(180deg, rgba(39, 89, 139, .42), rgba(24, 59, 96, .42));
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.2;
+      min-height: 24px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+
+    .copy-btn:hover {
+      color: #ffffff;
+      border-color: var(--accent-2);
+      background: linear-gradient(180deg, rgba(70, 147, 220, .5), rgba(28, 82, 138, .5));
+    }
+    .copy-btn.done {
+      color: #07140b;
+      border-color: rgba(148, 211, 127, .8);
+      background: linear-gradient(180deg, rgba(148, 211, 127, .95), rgba(91, 157, 77, .95));
+    }
+
+    .prompt-text {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      padding-top: 2px;
+    }
+
+    .prompt-text[contenteditable="true"] {
+      min-height: 80px;
+      padding: 8px;
+      border: 1px dashed var(--accent-2);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .04);
+      color: var(--text);
+      outline: none;
+    }
+
+    .meta-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #1f4868;
+      color: #a6d8ff;
+      border: 1px solid #245579;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .resource-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .resource-item {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--soft-bg);
+    }
+
+    .resource-thumb {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      object-fit: cover;
+      background: var(--image-bg);
+    }
+
+    .resource-body {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .resource-title {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .resource-meta {
+      color: var(--muted);
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .resource-link {
+      color: var(--accent-2);
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .resource-link:hover {
+      text-decoration: underline;
+    }
+
+    .resource-empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    dl {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 4px 8px;
+      margin: 0;
+      font-size: 11px;
+    }
+
+    dt { color: var(--quiet); }
+    dd { margin: 0; overflow-wrap: anywhere; }
+
+    @media (max-width: 820px) {
+      header { align-items: start; flex-direction: column; }
+      .layout { grid-template-columns: 1fr; }
+      .preview { min-height: auto; }
+      dl { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>EZ Prompt Viewer</h1>
+        <p class="sub" data-i18n="subtitle">EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 metadata from image files.</p>
+      </div>
+      <div class="header-actions">
+        <select id="languageSelect" class="ui-select" aria-label="Language">
+          <option value="auto">Auto</option>
+          <option value="en">English</option>
+          <option value="zh-CN">Chinese (Simplified) 简体中文</option>
+          <option value="zh-TW">Chinese (Traditional) 繁體中文</option>
+          <option value="ja">Japanese 日本語</option>
+          <option value="ko">Korean 한국어</option>
+          <option value="es">Spanish Español</option>
+          <option value="fr">French Français</option>
+          <option value="de">German Deutsch</option>
+        </select>
+        <select id="themeSelect" class="theme-select" aria-label="Theme">
+          <option value="blue">Blue</option>
+          <option value="dark">Dark</option>
+          <option value="gray">Gray</option>
+          <option value="light">Light</option>
+          <option value="neon">Neon</option>
+          <option value="cyberpunk">Cyberpunk</option>
+          <option value="synthwave">Synthwave</option>
+          <option value="black">Black</option>
+          <option value="crimson">Crimson</option>
+          <option value="inferno">Inferno</option>
+          <option value="radioactive">Radioactive</option>
+          <option value="candy">Candy</option>
+          <option value="yellow">Yellow</option>
+          <option value="christmas">Christmas</option>
+        </select>
+        <button id="aboutOpen" class="icon-button" type="button" data-i18n-title="aboutTitle" aria-label="About">?</button>
+        <button id="clearAll" class="button" type="button" data-i18n="clearAll">Clear</button>
+        <label class="button" for="folderInput" data-i18n="chooseFolder">Choose folder</label>
+        <label class="button" for="fileInput" data-i18n="choose">画像を選択</label>
+      </div>
+      <input id="fileInput" type="file" accept="image/avif,image/png,image/jpeg,image/webp,.avif,.png,.jpg,.jpeg,.webp">
+      <input id="folderInput" type="file" accept="image/avif,image/png,image/jpeg,image/webp,.avif,.png,.jpg,.jpeg,.webp" webkitdirectory multiple>
+    </header>
+
+    <section id="drop" class="drop">
+      <div>
+        <div class="drop-emoji" aria-hidden="true">🖼️</div>
+        <strong class="drop-title" data-i18n="dropTitle">画像・複数画像・フォルダをここにドラッグ</strong>
+        <p class="sub" data-i18n="dropSub">ファイルはブラウザ内だけで処理されます</p>
+        <p class="sub" data-i18n="dropHint">またはクリックして選択</p>
+        <div class="drop-meta">AVIF / PNG / JPEG / WebP</div>
+      </div>
+    </section>
+
+    <section id="folderPanel" class="folder-panel" hidden>
+      <div class="folder-head">
+        <strong data-i18n="folderImages">Folder images</strong>
+        <label class="folder-controls">
+          <span data-i18n="thumbnailSize">Thumbnail size</span>
+          <input id="thumbnailSize" type="range" min="56" max="180" step="4" value="74">
+          <span id="thumbnailSizeValue">74px</span>
+        </label>
+        <span id="folderCount"></span>
+      </div>
+      <div id="folderList" class="folder-list"></div>
+    </section>
+
+    <section class="layout">
+      <aside class="preview">
+        <div class="image-wrap">
+          <img id="preview" alt="">
+          <div class="image-hint" data-i18n="imageHint">Click to enlarge</div>
+        </div>
+        <div id="fileInfo" class="file-info">未選択</div>
+        <div class="image-nav" aria-label="Folder image navigation">
+          <button id="prevImage" type="button" data-i18n-title="previousImage" title="Previous image">◀</button>
+          <span id="imageIndex">- / -</span>
+          <button id="nextImage" type="button" data-i18n-title="nextImage" title="Next image">▶</button>
+          <button id="slideshowToggle" type="button" data-i18n="slideshow">Slideshow</button>
+          <input id="slideshowInterval" class="slide-interval" type="number" min="1" max="30" step="1" value="3" title="Seconds">
+        </div>
+        <div class="preview-stack">
+          <div class="prompt-block">
+            <div class="prompt-row">
+              <h2 data-i18n="resources">Civitaiリソース</h2>
+              <div class="copy-actions">
+                <button id="civitaiLookup" class="copy-btn" type="button" data-i18n="lookup">照合</button>
+              </div>
+            </div>
+            <div class="collapsible-body">
+              <div id="civitaiResources" class="resource-list"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <article class="content">
+        <div class="prompt-grid">
+          <div class="summary-box">
+            <div class="summary-head">
+              <h2 data-i18n="summary">Summary</h2>
+            </div>
+            <div class="summary-body">
+              <div id="status" class="status" data-i18n="statusEmpty">画像を選択してください。</div>
+              <dl id="summaryList"></dl>
+            </div>
+          </div>
+
+          <div class="generation-head">
+            <h2>Generation data</h2>
+            <div class="generation-actions">
+              <label class="toggle-inline">
+                <input id="removeDuplicates" type="checkbox" checked>
+                <span data-i18n="removeDuplicates">Remove duplicates</span>
+              </label>
+              <label class="toggle-inline">
+                <input id="removeUnderscores" type="checkbox" checked>
+                <span data-i18n="removeUnderscores">Remove underscores</span>
+              </label>
+              <button class="copy-all-link" type="button" id="formatPrompt" data-i18n="formatPrompt">Format Prompt</button>
+              <button class="copy-all-link" type="button" id="editText" data-i18n="editText">Edit</button>
+              <button class="copy-all-link" type="button" id="saveText" data-i18n="saveText">Save TXT</button>
+              <button class="copy-all-link" type="button" id="copyAll" data-i18n="copyAll">すべてコピー</button>
+            </div>
+          </div>
+
+          <div class="prompt-block">
+            <div class="prompt-row">
+              <h2 data-i18n="prompt">プロンプト</h2>
+              <div class="copy-actions">
+                <button class="copy-btn" data-copy-target="positiveText" data-i18n="copy" title="Copy positive prompt">コピー</button>
+              </div>
+            </div>
+            <div class="collapsible-body">
+              <div id="positiveText" class="prompt-text"></div>
+            </div>
+          </div>
+
+          <div class="prompt-block">
+            <div class="prompt-row">
+              <h2 data-i18n="negative">ネガティブプロンプト</h2>
+              <div class="copy-actions">
+                <button class="copy-btn" data-copy-target="negativeText" data-i18n="copy" title="Copy negative prompt">コピー</button>
+              </div>
+            </div>
+            <div class="collapsible-body">
+              <div id="negativeText" class="prompt-text"></div>
+            </div>
+          </div>
+
+          <div class="prompt-block">
+            <div class="prompt-row">
+              <h2 data-i18n="metadata">その他メタデータ</h2>
+              <div class="copy-actions">
+                <button class="copy-btn" data-copy-target="settingsText" data-i18n="copy" title="Copy metadata">コピー</button>
+              </div>
+            </div>
+            <div class="collapsible-body">
+              <div id="settingsChips" class="meta-chips"></div>
+              <div id="settingsText" class="prompt-text"></div>
+            </div>
+          </div>
+
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <div id="lightbox" class="lightbox" aria-hidden="true">
+    <button id="lightboxClose" class="lightbox-close" type="button" aria-label="Close">x</button>
+    <img id="lightboxImage" alt="">
+  </div>
+
+  <div id="aboutOverlay" class="about-overlay" aria-hidden="true">
+    <section class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="aboutName">
+      <div class="about-titlebar">
+        <div class="about-title">
+          <span class="about-mark" aria-hidden="true"></span>
+          <span data-i18n="aboutTitle">About EZ Prompt Viewer</span>
+        </div>
+        <button id="aboutClose" class="about-close" type="button" aria-label="Close">x</button>
+      </div>
+      <div class="about-body">
+        <img class="about-character" src="assets/about-character.gif" alt="">
+        <h2 id="aboutName" class="about-name">EZ Prompt Viewer</h2>
+        <p class="about-meta" data-i18n="aboutVersion">Prototype build</p>
+        <p class="about-copy" data-i18n="aboutCopy">Local Windows desktop app for ComfyUI and A1111 metadata.</p>
+      </div>
+      <div class="about-footer">
+        <button id="aboutOk" class="about-ok" type="button">OK</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const latin1Decoder = new TextDecoder("latin1", { fatal: false });
+    const utf16leDecoder = new TextDecoder("utf-16le", { fatal: false });
+    const utf16beDecoder = new TextDecoder("utf-16be", { fatal: false });
+    const defaultTheme = "blue";
+    const defaultThemeVersion = "20260619-blue-default";
+    let currentLang = "en";
+    let formatApplied = false;
+    let lastParsed = null;
+    let lastFile = null;
+    let lastBytes = null;
+    let folderThumbUrls = [];
+    let folderFiles = [];
+    let folderIndex = -1;
+    let folderThumbSize = Number(localStorage.getItem("avifPromptViewerThumbnailSize") || 74);
+    let slideshowTimer = 0;
+
+    const i18n = {
+      ja: {
+        subtitle: "EZ Prompt Viewer は、画像ファイルから ComfyUI と A1111 のメタデータを表示する Windows 向けローカルデスクトップアプリです。",
+        choose: "画像を選択",
+        clearAll: "クリア",
+        chooseFolder: "フォルダ選択",
+        folderImages: "フォルダ画像",
+        folderCount: "{count} 件",
+        thumbnailSize: "サムネイルサイズ",
+        previousImage: "前の画像",
+        nextImage: "次の画像",
+        slideshow: "スライドショー",
+        stopSlideshow: "停止",
+        dropTitle: "画像・複数画像・フォルダをここにドラッグ",
+        dropSub: "ファイルはブラウザ内だけで処理されます",
+        dropHint: "またはクリックして選択",
+        statusEmpty: "画像を選択してください。",
+        statusGood: "メタデータ候補を検出しました。",
+        statusWarn: "プロンプトらしいメタデータは見つかりませんでした。",
+        copyAll: "すべてコピー",
+        copy: "コピー",
+        copied: "コピー済み",
+        imageHint: "クリックで拡大",
+        summary: "概要",
+        formatPrompt: "プロンプト整形",
+        editText: "編集",
+        doneEdit: "編集完了",
+        saveText: "TXT保存",
+        removeDuplicates: "重複を削除",
+        removeUnderscores: "アンダースコアを空白化",
+        aboutTitle: "EZ Prompt Viewer について",
+        aboutVersion: "Prototype build",
+        aboutCopy: "ComfyUI と A1111 メタデータ用の Windows ローカルデスクトップアプリです。",
+        prompt: "プロンプト",
+        negative: "ネガティブプロンプト",
+        metadata: "その他メタデータ",
+        info: "情報",
+        yes: "あり",
+        no: "なし",
+        unknown: "未判定",
+        comfy: "ComfyUI workflow",
+        a1111: "A1111 metadata",
+        resources: "Civitaiリソース",
+        lookup: "照合",
+        lookupRunning: "照合中",
+        lookupDone: "完了",
+        noHashes: "Civitai照合用のハッシュが見つかりません。",
+        lookupFailed: "照合に失敗しました。",
+        lookupReady: "照合候補",
+        notFound: "見つかりません",
+        positiveMissing: "(プロンプトなし)",
+        negativeMissing: "(ネガティブプロンプトなし)",
+        settingsMissing: "(設定なし)",
+      },
+      en: {
+        subtitle: "EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 metadata from image files.",
+        choose: "Choose image",
+        clearAll: "Clear",
+        chooseFolder: "Choose folder",
+        folderImages: "Folder images",
+        folderCount: "{count} files",
+        thumbnailSize: "Thumbnail size",
+        previousImage: "Previous image",
+        nextImage: "Next image",
+        slideshow: "Slideshow",
+        stopSlideshow: "Stop",
+        dropTitle: "Drop an image, images, or folder here",
+        dropSub: "Files are processed only in your browser",
+        dropHint: "or click to choose",
+        statusEmpty: "Choose an image.",
+        statusGood: "Metadata candidates found.",
+        statusWarn: "No prompt-like metadata found.",
+        copyAll: "COPY ALL",
+        copy: "COPY",
+        copied: "COPIED",
+        imageHint: "Click to enlarge",
+        summary: "Summary",
+        formatPrompt: "Format Prompt",
+        editText: "Edit",
+        doneEdit: "Done",
+        saveText: "Save TXT",
+        removeDuplicates: "Remove duplicates",
+        removeUnderscores: "Remove underscores",
+        aboutTitle: "About EZ Prompt Viewer",
+        aboutVersion: "Prototype build",
+        aboutCopy: "Local Windows desktop app for ComfyUI and A1111 metadata.",
+        prompt: "Prompt",
+        negative: "Negative prompt",
+        metadata: "Other metadata",
+        info: "Info",
+        yes: "yes",
+        no: "no",
+        unknown: "unknown",
+        comfy: "ComfyUI workflow",
+        a1111: "A1111 metadata",
+        resources: "Civitai resources",
+        lookup: "Lookup",
+        lookupRunning: "Looking up",
+        lookupDone: "Done",
+        noHashes: "No hashes found for Civitai lookup.",
+        lookupFailed: "Lookup failed.",
+        lookupReady: "Candidates",
+        notFound: "Not found",
+        positiveMissing: "(positive prompt not found)",
+        negativeMissing: "(negative prompt not found)",
+        settingsMissing: "(settings not found)",
+      },
+      "zh-CN": {
+        subtitle: "EZ Prompt Viewer 是用于查看图像中 ComfyUI 和 A1111 元数据的本地 Windows 桌面应用。",
+        choose: "选择图像",
+        clearAll: "清除",
+        chooseFolder: "选择文件夹",
+        folderImages: "文件夹图像",
+        folderCount: "{count} 个文件",
+        thumbnailSize: "缩略图大小",
+        previousImage: "上一张图像",
+        nextImage: "下一张图像",
+        slideshow: "幻灯片",
+        stopSlideshow: "停止",
+        dropTitle: "将图像、多个图像或文件夹拖到这里",
+        dropSub: "文件只会在本地浏览器中处理",
+        dropHint: "或点击选择",
+        statusEmpty: "请选择一张图像。",
+        statusGood: "已找到元数据候选项。",
+        statusWarn: "未找到类似提示词的元数据。",
+        copyAll: "全部复制",
+        copy: "复制",
+        copied: "已复制",
+        imageHint: "点击放大",
+        summary: "摘要",
+        formatPrompt: "格式化提示词",
+        editText: "编辑",
+        doneEdit: "完成",
+        saveText: "保存TXT",
+        removeDuplicates: "移除重复项",
+        removeUnderscores: "移除下划线",
+        aboutTitle: "关于 EZ Prompt Viewer",
+        aboutVersion: "原型版本",
+        aboutCopy: "用于 ComfyUI 和 A1111 元数据的本地 Windows 桌面应用。",
+        prompt: "提示词",
+        negative: "反向提示词",
+        metadata: "其他元数据",
+        info: "信息",
+        yes: "是",
+        no: "否",
+        unknown: "未知",
+        comfy: "ComfyUI 工作流",
+        a1111: "A1111 元数据",
+        resources: "Civitai 资源",
+        lookup: "查询",
+        lookupRunning: "查询中",
+        lookupDone: "完成",
+        noHashes: "未找到可用于 Civitai 查询的哈希。",
+        lookupFailed: "查询失败。",
+        lookupReady: "候选项",
+        notFound: "未找到",
+        positiveMissing: "(未找到提示词)",
+        negativeMissing: "(未找到反向提示词)",
+        settingsMissing: "(未找到设置)",
+      },
+      "zh-TW": {
+        subtitle: "EZ Prompt Viewer 是用來查看圖像中 ComfyUI 和 A1111 中繼資料的本機 Windows 桌面應用程式。",
+        choose: "選擇圖像",
+        clearAll: "清除",
+        chooseFolder: "選擇資料夾",
+        folderImages: "資料夾圖像",
+        folderCount: "{count} 個檔案",
+        thumbnailSize: "縮圖大小",
+        previousImage: "上一張圖像",
+        nextImage: "下一張圖像",
+        slideshow: "幻燈片",
+        stopSlideshow: "停止",
+        dropTitle: "將圖像、多張圖像或資料夾拖到這裡",
+        dropSub: "檔案只會在本機瀏覽器中處理",
+        dropHint: "或點擊選擇",
+        statusEmpty: "請選擇一張圖像。",
+        statusGood: "已找到中繼資料候選項。",
+        statusWarn: "未找到類似提示詞的中繼資料。",
+        copyAll: "全部複製",
+        copy: "複製",
+        copied: "已複製",
+        imageHint: "點擊放大",
+        summary: "摘要",
+        formatPrompt: "格式化提示詞",
+        editText: "編輯",
+        doneEdit: "完成",
+        saveText: "儲存TXT",
+        removeDuplicates: "移除重複項",
+        removeUnderscores: "移除底線",
+        aboutTitle: "關於 EZ Prompt Viewer",
+        aboutVersion: "原型版本",
+        aboutCopy: "用於 ComfyUI 和 A1111 中繼資料的本機 Windows 桌面應用程式。",
+        prompt: "提示詞",
+        negative: "反向提示詞",
+        metadata: "其他中繼資料",
+        info: "資訊",
+        yes: "是",
+        no: "否",
+        unknown: "未知",
+        comfy: "ComfyUI 工作流程",
+        a1111: "A1111 中繼資料",
+        resources: "Civitai 資源",
+        lookup: "查詢",
+        lookupRunning: "查詢中",
+        lookupDone: "完成",
+        noHashes: "未找到可用於 Civitai 查詢的雜湊。",
+        lookupFailed: "查詢失敗。",
+        lookupReady: "候選項",
+        notFound: "未找到",
+        positiveMissing: "(未找到提示詞)",
+        negativeMissing: "(未找到反向提示詞)",
+        settingsMissing: "(未找到設定)",
+      },
+      ko: {
+        subtitle: "EZ Prompt Viewer는 이미지 파일의 ComfyUI 및 A1111 메타데이터를 보는 로컬 Windows 데스크톱 앱입니다.",
+        choose: "이미지 선택",
+        clearAll: "지우기",
+        chooseFolder: "폴더 선택",
+        folderImages: "폴더 이미지",
+        folderCount: "{count}개 파일",
+        thumbnailSize: "썸네일 크기",
+        previousImage: "이전 이미지",
+        nextImage: "다음 이미지",
+        slideshow: "슬라이드쇼",
+        stopSlideshow: "정지",
+        dropTitle: "이미지, 여러 이미지 또는 폴더를 여기에 놓기",
+        dropSub: "파일은 로컬 브라우저에서만 처리됩니다",
+        dropHint: "또는 클릭하여 선택",
+        statusEmpty: "이미지를 선택하세요.",
+        statusGood: "메타데이터 후보를 찾았습니다.",
+        statusWarn: "프롬프트로 보이는 메타데이터를 찾지 못했습니다.",
+        copyAll: "전체 복사",
+        copy: "복사",
+        copied: "복사됨",
+        imageHint: "클릭하여 확대",
+        summary: "요약",
+        formatPrompt: "프롬프트 정리",
+        editText: "편집",
+        doneEdit: "완료",
+        saveText: "TXT 저장",
+        removeDuplicates: "중복 제거",
+        removeUnderscores: "밑줄 제거",
+        aboutTitle: "EZ Prompt Viewer 정보",
+        aboutVersion: "프로토타입 빌드",
+        aboutCopy: "ComfyUI 및 A1111 메타데이터용 로컬 Windows 데스크톱 앱입니다.",
+        prompt: "프롬프트",
+        negative: "네거티브 프롬프트",
+        metadata: "기타 메타데이터",
+        info: "정보",
+        yes: "예",
+        no: "아니요",
+        unknown: "알 수 없음",
+        comfy: "ComfyUI 워크플로",
+        a1111: "A1111 메타데이터",
+        resources: "Civitai 리소스",
+        lookup: "조회",
+        lookupRunning: "조회 중",
+        lookupDone: "완료",
+        noHashes: "Civitai 조회용 해시를 찾지 못했습니다.",
+        lookupFailed: "조회 실패.",
+        lookupReady: "후보",
+        notFound: "찾을 수 없음",
+        positiveMissing: "(프롬프트 없음)",
+        negativeMissing: "(네거티브 프롬프트 없음)",
+        settingsMissing: "(설정 없음)",
+      },
+      es: {
+        subtitle: "EZ Prompt Viewer es una app local de escritorio para Windows para ver metadatos de ComfyUI y A1111 en archivos de imagen.",
+        choose: "Elegir imagen",
+        clearAll: "Limpiar",
+        chooseFolder: "Elegir carpeta",
+        folderImages: "Imágenes de carpeta",
+        folderCount: "{count} archivos",
+        thumbnailSize: "Tamaño de miniatura",
+        previousImage: "Imagen anterior",
+        nextImage: "Imagen siguiente",
+        slideshow: "Diapositivas",
+        stopSlideshow: "Detener",
+        dropTitle: "Suelta una imagen, varias imágenes o carpeta aquí",
+        dropSub: "Los archivos se procesan solo en tu navegador",
+        dropHint: "o haz clic para elegir",
+        statusEmpty: "Elige una imagen.",
+        statusGood: "Se encontraron candidatos de metadatos.",
+        statusWarn: "No se encontraron metadatos tipo prompt.",
+        copyAll: "COPIAR TODO",
+        copy: "COPIAR",
+        copied: "COPIADO",
+        imageHint: "Clic para ampliar",
+        summary: "Resumen",
+        formatPrompt: "Formatear prompt",
+        editText: "Editar",
+        doneEdit: "Listo",
+        saveText: "Guardar TXT",
+        removeDuplicates: "Quitar duplicados",
+        removeUnderscores: "Quitar guiones bajos",
+        aboutTitle: "Acerca de EZ Prompt Viewer",
+        aboutVersion: "Versión prototipo",
+        aboutCopy: "App local de Windows para metadatos de ComfyUI y A1111.",
+        prompt: "Prompt",
+        negative: "Prompt negativo",
+        metadata: "Otros metadatos",
+        info: "Información",
+        yes: "sí",
+        no: "no",
+        unknown: "desconocido",
+        comfy: "Flujo ComfyUI",
+        a1111: "Metadatos A1111",
+        resources: "Recursos Civitai",
+        lookup: "Buscar",
+        lookupRunning: "Buscando",
+        lookupDone: "Listo",
+        noHashes: "No se encontraron hashes para buscar en Civitai.",
+        lookupFailed: "La búsqueda falló.",
+        lookupReady: "Candidatos",
+        notFound: "No encontrado",
+        positiveMissing: "(prompt no encontrado)",
+        negativeMissing: "(prompt negativo no encontrado)",
+        settingsMissing: "(ajustes no encontrados)",
+      },
+      fr: {
+        subtitle: "EZ Prompt Viewer est une application Windows locale pour afficher les métadonnées ComfyUI et A1111 des fichiers image.",
+        choose: "Choisir une image",
+        clearAll: "Effacer",
+        chooseFolder: "Choisir dossier",
+        folderImages: "Images du dossier",
+        folderCount: "{count} fichiers",
+        thumbnailSize: "Taille miniature",
+        previousImage: "Image précédente",
+        nextImage: "Image suivante",
+        slideshow: "Diaporama",
+        stopSlideshow: "Arrêter",
+        dropTitle: "Déposez une image, des images ou un dossier ici",
+        dropSub: "Les fichiers sont traités uniquement dans votre navigateur",
+        dropHint: "ou cliquez pour choisir",
+        statusEmpty: "Choisissez une image.",
+        statusGood: "Métadonnées candidates trouvées.",
+        statusWarn: "Aucune métadonnée de type prompt trouvée.",
+        copyAll: "TOUT COPIER",
+        copy: "COPIER",
+        copied: "COPIÉ",
+        imageHint: "Cliquer pour agrandir",
+        summary: "Résumé",
+        formatPrompt: "Formater le prompt",
+        editText: "Modifier",
+        doneEdit: "Terminé",
+        saveText: "Enregistrer TXT",
+        removeDuplicates: "Supprimer les doublons",
+        removeUnderscores: "Supprimer les underscores",
+        aboutTitle: "À propos de EZ Prompt Viewer",
+        aboutVersion: "Version prototype",
+        aboutCopy: "Application Windows locale pour les métadonnées ComfyUI et A1111.",
+        prompt: "Prompt",
+        negative: "Prompt négatif",
+        metadata: "Autres métadonnées",
+        info: "Infos",
+        yes: "oui",
+        no: "non",
+        unknown: "inconnu",
+        comfy: "Workflow ComfyUI",
+        a1111: "Métadonnées A1111",
+        resources: "Ressources Civitai",
+        lookup: "Rechercher",
+        lookupRunning: "Recherche",
+        lookupDone: "Terminé",
+        noHashes: "Aucun hash trouvé pour la recherche Civitai.",
+        lookupFailed: "Échec de la recherche.",
+        lookupReady: "Candidats",
+        notFound: "Introuvable",
+        positiveMissing: "(prompt introuvable)",
+        negativeMissing: "(prompt négatif introuvable)",
+        settingsMissing: "(paramètres introuvables)",
+      },
+      de: {
+        subtitle: "EZ Prompt Viewer ist eine lokale Windows-Desktop-App zum Anzeigen von ComfyUI- und A1111-Metadaten aus Bilddateien.",
+        choose: "Bild wählen",
+        clearAll: "Leeren",
+        chooseFolder: "Ordner wählen",
+        folderImages: "Ordnerbilder",
+        folderCount: "{count} Dateien",
+        thumbnailSize: "Thumbnail-Größe",
+        previousImage: "Vorheriges Bild",
+        nextImage: "Nächstes Bild",
+        slideshow: "Diashow",
+        stopSlideshow: "Stopp",
+        dropTitle: "Bild, Bilder oder Ordner hier ablegen",
+        dropSub: "Dateien werden nur lokal im Browser verarbeitet",
+        dropHint: "oder zum Auswählen klicken",
+        statusEmpty: "Wähle ein Bild aus.",
+        statusGood: "Metadaten-Kandidaten gefunden.",
+        statusWarn: "Keine promptartigen Metadaten gefunden.",
+        copyAll: "ALLES KOPIEREN",
+        copy: "KOPIEREN",
+        copied: "KOPIERT",
+        imageHint: "Zum Vergrößern klicken",
+        summary: "Übersicht",
+        formatPrompt: "Prompt formatieren",
+        editText: "Bearbeiten",
+        doneEdit: "Fertig",
+        saveText: "TXT speichern",
+        removeDuplicates: "Duplikate entfernen",
+        removeUnderscores: "Unterstriche entfernen",
+        aboutTitle: "Über EZ Prompt Viewer",
+        aboutVersion: "Prototyp-Build",
+        aboutCopy: "Lokale Windows-App für ComfyUI- und A1111-Metadaten.",
+        prompt: "Prompt",
+        negative: "Negativer Prompt",
+        metadata: "Weitere Metadaten",
+        info: "Info",
+        yes: "ja",
+        no: "nein",
+        unknown: "unbekannt",
+        comfy: "ComfyUI-Workflow",
+        a1111: "A1111-Metadaten",
+        resources: "Civitai-Ressourcen",
+        lookup: "Suchen",
+        lookupRunning: "Suche läuft",
+        lookupDone: "Fertig",
+        noHashes: "Keine Hashes für die Civitai-Suche gefunden.",
+        lookupFailed: "Suche fehlgeschlagen.",
+        lookupReady: "Kandidaten",
+        notFound: "Nicht gefunden",
+        positiveMissing: "(Prompt nicht gefunden)",
+        negativeMissing: "(negativer Prompt nicht gefunden)",
+        settingsMissing: "(Einstellungen nicht gefunden)",
+      },
+    };
+
+    const els = {
+      drop: $("drop"),
+      input: $("fileInput"),
+      folderInput: $("folderInput"),
+      folderPanel: $("folderPanel"),
+      folderList: $("folderList"),
+      folderCount: $("folderCount"),
+      thumbnailSize: $("thumbnailSize"),
+      thumbnailSizeValue: $("thumbnailSizeValue"),
+      languageSelect: $("languageSelect"),
+      themeSelect: $("themeSelect"),
+      aboutOpen: $("aboutOpen"),
+      clearAll: $("clearAll"),
+      aboutOverlay: $("aboutOverlay"),
+      aboutClose: $("aboutClose"),
+      aboutOk: $("aboutOk"),
+      formatPrompt: $("formatPrompt"),
+      editText: $("editText"),
+      saveText: $("saveText"),
+      removeDuplicates: $("removeDuplicates"),
+      removeUnderscores: $("removeUnderscores"),
+      preview: $("preview"),
+      prevImage: $("prevImage"),
+      nextImage: $("nextImage"),
+      imageIndex: $("imageIndex"),
+      slideshowToggle: $("slideshowToggle"),
+      slideshowInterval: $("slideshowInterval"),
+      lightbox: $("lightbox"),
+      lightboxImage: $("lightboxImage"),
+      lightboxClose: $("lightboxClose"),
+      fileInfo: $("fileInfo"),
+      status: $("status"),
+      summary: $("summaryList"),
+      positive: $("positiveText"),
+      negative: $("negativeText"),
+      settings: $("settingsText"),
+      settingsChips: $("settingsChips"),
+      copyAll: $("copyAll"),
+      civitaiLookup: $("civitaiLookup"),
+      civitaiResources: $("civitaiResources"),
+    };
+
+    els.languageSelect.addEventListener("change", () => {
+      setLanguage(els.languageSelect.value);
+    });
+
+    els.themeSelect.addEventListener("change", () => {
+      setTheme(els.themeSelect.value);
+    });
+
+    els.input.addEventListener("change", () => {
+      const file = els.input.files?.[0];
+      if (file) loadSingleFile(file);
+    });
+
+    els.folderInput.addEventListener("change", () => {
+      loadFolderFiles(Array.from(els.folderInput.files || []));
+    });
+
+    els.thumbnailSize.addEventListener("input", () => {
+      setThumbnailSize(Number(els.thumbnailSize.value), true);
+    });
+
+    els.folderList.addEventListener("wheel", (event) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const step = event.deltaY < 0 ? 8 : -8;
+      setThumbnailSize(folderThumbSize + step, true);
+    }, { passive: false });
+
+    els.drop.addEventListener("click", () => {
+      els.input.click();
+    });
+
+    els.preview.addEventListener("click", (event) => {
+      if (els.preview.src) openLightbox();
+    });
+
+    els.prevImage.addEventListener("click", () => loadFolderIndex(folderIndex - 1));
+    els.nextImage.addEventListener("click", () => loadFolderIndex(folderIndex + 1));
+    els.slideshowToggle.addEventListener("click", toggleSlideshow);
+    els.slideshowInterval.addEventListener("change", () => {
+      if (slideshowTimer) startSlideshow();
+    });
+
+    els.aboutOpen.addEventListener("click", openAbout);
+    els.clearAll.addEventListener("click", clearAll);
+
+    els.lightbox.addEventListener("click", (event) => {
+      if (event.target === els.lightbox || event.target === els.lightboxImage) closeLightbox();
+    });
+
+    els.lightboxClose.addEventListener("click", closeLightbox);
+
+    els.aboutOverlay.addEventListener("click", (event) => {
+      if (event.target === els.aboutOverlay) closeAbout();
+    });
+
+    els.aboutClose.addEventListener("click", closeAbout);
+    els.aboutOk.addEventListener("click", closeAbout);
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeLightbox();
+        closeAbout();
+      }
+    });
+
+    ["dragenter", "dragover"].forEach((name) => {
+      window.addEventListener(name, (event) => {
+        event.preventDefault();
+        els.drop.classList.add("drag");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((name) => {
+      window.addEventListener(name, (event) => {
+        event.preventDefault();
+        els.drop.classList.remove("drag");
+      });
+    });
+
+    window.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const files = await getDroppedImageFiles(event.dataTransfer);
+      await handleDroppedFiles(files);
+    });
+
+    document.querySelectorAll("[data-copy-target]").forEach((button) => {
+      button.addEventListener("click", () => copyFromElement(button, button.dataset.copyTarget));
+    });
+
+    document.querySelectorAll(".prompt-row").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("button")) return;
+        row.closest(".prompt-block")?.classList.toggle("collapsed");
+      });
+    });
+
+    document.querySelectorAll(".summary-head").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("button")) return;
+        row.closest(".summary-box")?.classList.toggle("collapsed");
+      });
+    });
+
+    els.formatPrompt.addEventListener("click", () => {
+      formatApplied = true;
+      applyPromptFormattingToView();
+    });
+
+    els.editText.addEventListener("click", () => {
+      setEditMode(els.positive.getAttribute("contenteditable") !== "true");
+    });
+
+    els.saveText.addEventListener("click", saveTextFile);
+
+    [els.removeDuplicates, els.removeUnderscores].forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        if (formatApplied) applyPromptFormattingToView();
+      });
+    });
+
+    els.copyAll.addEventListener("click", () => {
+      const text = [
+        els.positive.textContent,
+        els.negative.textContent ? `Negative prompt: ${els.negative.textContent}` : "",
+        els.settings.textContent,
+      ].filter(Boolean).join("\n");
+      copyText(els.copyAll, text);
+    });
+
+    els.civitaiLookup.addEventListener("click", () => lookupCivitaiResources());
+
+    function clearAll() {
+      if (els.preview.src) URL.revokeObjectURL(els.preview.src);
+      els.input.value = "";
+      clearFolderList();
+      els.preview.removeAttribute("src");
+      els.lightboxImage.removeAttribute("src");
+      document.body.classList.remove("has-file");
+      setEditMode(false);
+      formatApplied = false;
+      lastParsed = null;
+      lastFile = null;
+      lastBytes = null;
+      els.fileInfo.textContent = currentLang === "ja" ? "未選択" : "No file selected";
+      els.status.className = "status";
+      els.status.textContent = t("statusEmpty");
+      els.summary.innerHTML = "";
+      els.positive.textContent = "";
+      els.negative.textContent = "";
+      els.settings.textContent = "";
+      els.settingsChips.innerHTML = "";
+      els.civitaiResources.textContent = t("noHashes");
+    }
+
+    function clearFolderList() {
+      stopSlideshow();
+      folderThumbUrls.forEach((url) => URL.revokeObjectURL(url));
+      folderThumbUrls = [];
+      folderFiles = [];
+      folderIndex = -1;
+      els.folderList.innerHTML = "";
+      els.folderPanel.hidden = true;
+      els.folderCount.textContent = "";
+      els.folderInput.value = "";
+      updateFolderNav();
+    }
+
+    function isSupportedImageFile(file) {
+      const name = (file.name || "").toLowerCase();
+      return (file.type || "").startsWith("image/") || /\.(avif|png|jpe?g|webp)$/.test(name);
+    }
+
+    async function handleDroppedFiles(files) {
+      if (!files.length) return;
+      if (files.length > 1) {
+        loadFolderFiles(files);
+        loadFolderIndex(0);
+        return;
+      }
+      await loadSingleFile(files[0]);
+    }
+
+    async function getDroppedImageFiles(dataTransfer) {
+      const directFiles = Array.from(dataTransfer.files || []).filter(isSupportedImageFile);
+      if (directFiles.length) return directFiles;
+
+      const items = Array.from(dataTransfer.items || []);
+      const entries = items
+        .map((item) => item.webkitGetAsEntry?.())
+        .filter(Boolean);
+
+      if (entries.length) {
+        const files = [];
+        for (const entry of entries) {
+          files.push(...await readDroppedEntry(entry));
+        }
+        return files.filter(isSupportedImageFile);
+      }
+
+      return Array.from(dataTransfer.files || []).filter(isSupportedImageFile);
+    }
+
+    async function readDroppedEntry(entry) {
+      if (entry.isFile) {
+        return [await new Promise((resolve, reject) => entry.file(resolve, reject))];
+      }
+      if (!entry.isDirectory) return [];
+
+      const reader = entry.createReader();
+      const entries = [];
+      while (true) {
+        const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+        if (!batch.length) break;
+        entries.push(...batch);
+      }
+
+      const files = [];
+      for (const child of entries) {
+        files.push(...await readDroppedEntry(child));
+      }
+      return files;
+    }
+
+    function setThumbnailSize(size, save = false) {
+      const min = Number(els.thumbnailSize.min);
+      const max = Number(els.thumbnailSize.max);
+      folderThumbSize = Math.min(max, Math.max(min, Math.round(size / 4) * 4));
+      document.documentElement.style.setProperty("--folder-thumb-size", `${folderThumbSize}px`);
+      els.thumbnailSize.value = String(folderThumbSize);
+      els.thumbnailSizeValue.textContent = `${folderThumbSize}px`;
+      if (save) localStorage.setItem("avifPromptViewerThumbnailSize", String(folderThumbSize));
+    }
+
+    function loadFolderFiles(files) {
+      stopSlideshow();
+      clearFolderList();
+      const images = files
+        .filter(isSupportedImageFile)
+        .sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, undefined, { numeric: true }));
+
+      if (!images.length) return;
+
+      folderFiles = images;
+      folderIndex = -1;
+      els.folderPanel.hidden = false;
+      els.folderCount.textContent = t("folderCount").replace("{count}", images.length);
+      els.folderList.innerHTML = images.map((file, index) => {
+        const url = URL.createObjectURL(file);
+        folderThumbUrls.push(url);
+        const name = file.webkitRelativePath || file.name;
+        return `
+          <button class="folder-thumb" type="button" data-folder-index="${index}" title="${escapeHtml(name)}">
+            <img src="${escapeHtml(url)}" alt="">
+            <span>${escapeHtml(file.name)}</span>
+          </button>
+        `;
+      }).join("");
+
+      els.folderList.querySelectorAll("[data-folder-index]").forEach((button) => {
+        button.addEventListener("click", () => {
+          loadFolderIndex(Number(button.dataset.folderIndex));
+        });
+      });
+      updateFolderNav();
+    }
+
+    function loadFolderIndex(index) {
+      if (!folderFiles.length) return;
+      const nextIndex = Math.min(folderFiles.length - 1, Math.max(0, index));
+      folderIndex = nextIndex;
+      updateFolderNav();
+      loadFile(folderFiles[nextIndex]);
+    }
+
+    function updateFolderNav() {
+      const canNavigate = folderFiles.length > 1 && folderIndex >= 0;
+      els.prevImage.disabled = !canNavigate || folderIndex <= 0;
+      els.nextImage.disabled = !canNavigate || folderIndex >= folderFiles.length - 1;
+      els.slideshowToggle.disabled = !canNavigate;
+      els.slideshowInterval.disabled = !canNavigate;
+      els.imageIndex.textContent = canNavigate ? `${folderIndex + 1} / ${folderFiles.length}` : "- / -";
+      els.folderList.querySelectorAll(".folder-thumb").forEach((button) => {
+        button.classList.toggle("active", Number(button.dataset.folderIndex) === folderIndex);
+      });
+    }
+
+    function toggleSlideshow() {
+      if (slideshowTimer) stopSlideshow();
+      else startSlideshow();
+    }
+
+    function startSlideshow() {
+      stopSlideshow();
+      if (!folderFiles.length) return;
+      if (folderIndex < 0) loadFolderIndex(0);
+      const seconds = Math.min(30, Math.max(1, Number(els.slideshowInterval.value) || 3));
+      els.slideshowInterval.value = String(seconds);
+      els.slideshowToggle.textContent = t("stopSlideshow");
+      els.slideshowToggle.classList.add("done");
+      slideshowTimer = window.setInterval(() => {
+        const next = folderIndex >= folderFiles.length - 1 ? 0 : folderIndex + 1;
+        loadFolderIndex(next);
+      }, seconds * 1000);
+    }
+
+    function stopSlideshow() {
+      if (slideshowTimer) {
+        window.clearInterval(slideshowTimer);
+        slideshowTimer = 0;
+      }
+      if (els.slideshowToggle) {
+        els.slideshowToggle.textContent = t("slideshow");
+        els.slideshowToggle.classList.remove("done");
+      }
+    }
+
+    function setEditMode(enabled) {
+      [els.positive, els.negative, els.settings].forEach((el) => {
+        el.setAttribute("contenteditable", enabled ? "true" : "false");
+        el.spellcheck = false;
+      });
+      els.editText.textContent = enabled ? t("doneEdit") : t("editText");
+    }
+
+    function saveTextFile() {
+      const text = [
+        "# Positive prompt",
+        els.positive.textContent.trim(),
+        "",
+        "# Negative prompt",
+        els.negative.textContent.trim(),
+        "",
+        "# Settings",
+        els.settings.textContent.trim(),
+      ].join("\n").trim() + "\n";
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const base = (lastFile?.name || "prompt").replace(/\.[^.]+$/, "");
+      link.href = url;
+      link.download = `${base}_metadata.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function loadSingleFile(file) {
+      stopSlideshow();
+      folderFiles = [];
+      folderIndex = -1;
+      updateFolderNav();
+      await loadFile(file);
+    }
+
+    async function loadFile(file) {
+      formatApplied = false;
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const url = URL.createObjectURL(file);
+      els.preview.src = url;
+      document.body.classList.add("has-file");
+      els.fileInfo.textContent = `${file.name} / ${formatBytes(file.size)} / ${file.type || detectType(bytes)}`;
+
+      const parsed = parseMetadata(bytes, file);
+      lastParsed = parsed;
+      lastFile = file;
+      lastBytes = bytes;
+      render(parsed, file, bytes);
+    }
+
+    function openLightbox() {
+      els.lightboxImage.src = els.preview.src;
+      els.lightbox.classList.add("open");
+      els.lightbox.setAttribute("aria-hidden", "false");
+    }
+
+    function closeLightbox() {
+      els.lightbox.classList.remove("open");
+      els.lightbox.setAttribute("aria-hidden", "true");
+    }
+
+    function openAbout() {
+      els.aboutOverlay.classList.add("open");
+      els.aboutOverlay.setAttribute("aria-hidden", "false");
+      els.aboutOk.focus();
+    }
+
+    function closeAbout() {
+      els.aboutOverlay.classList.remove("open");
+      els.aboutOverlay.setAttribute("aria-hidden", "true");
+    }
+
+    function render(parsed, file, bytes) {
+      const hasUseful = Boolean(parsed.positive || parsed.negative || parsed.settings || parsed.prompt || parsed.workflow || parsed.a1111 || parsed.records.length);
+      els.status.className = `status ${hasUseful ? "good" : "warn"}`;
+      els.status.textContent = hasUseful
+        ? t("statusGood")
+        : t("statusWarn");
+
+      const summary = {
+        File: file.name,
+        Type: file.type || detectType(bytes),
+        Bytes: formatBytes(file.size),
+        Detected: parsed.detected.join(", ") || "none",
+        [t("comfy")]: isComfyWorkflow(parsed) ? t("yes") : t("no"),
+        [t("a1111")]: isA1111Metadata(parsed) ? t("yes") : t("no"),
+        Records: String(parsed.records.length),
+      };
+      els.summary.innerHTML = Object.entries(summary)
+        .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`)
+        .join("");
+
+      applyPromptFormattingToView();
+      els.settings.textContent = parsed.settings || t("settingsMissing");
+      els.settingsChips.innerHTML = renderSettingsChips(parsed.settings);
+      renderCivitaiCandidates(parsed);
+    }
+
+    function setLanguage(lang) {
+      currentLang = resolveLanguage(lang);
+      els.languageSelect.value = lang || "auto";
+      document.documentElement.lang = currentLang;
+      localStorage.setItem("avifPromptViewerLanguage", lang || "auto");
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+        const label = t(el.dataset.i18nTitle);
+        el.title = label;
+        el.setAttribute("aria-label", label);
+      });
+      if (slideshowTimer) els.slideshowToggle.textContent = t("stopSlideshow");
+      if (!els.folderPanel.hidden) {
+        const count = els.folderList.querySelectorAll(".folder-thumb").length;
+        els.folderCount.textContent = t("folderCount").replace("{count}", count);
+      }
+      if (lastParsed && lastFile && lastBytes) render(lastParsed, lastFile, lastBytes);
+      else {
+        els.status.textContent = t("statusEmpty");
+        els.civitaiResources.textContent = t("noHashes");
+      }
+    }
+
+    function t(key) {
+      return i18n[currentLang]?.[key] || i18n.en[key] || key;
+    }
+
+    function setTheme(theme) {
+      const nextTheme = ["dark", "gray", "light", "neon", "cyberpunk", "synthwave", "black", "crimson", "inferno", "radioactive", "candy", "yellow", "blue", "christmas"].includes(theme) ? theme : "blue";
+      document.body.dataset.theme = nextTheme;
+      els.themeSelect.value = nextTheme;
+      localStorage.setItem("avifPromptViewerTheme", nextTheme);
+    }
+
+    function resolveLanguage(lang) {
+      if (lang === "auto") {
+        const detected = (navigator.language || navigator.userLanguage || "en").toLowerCase();
+        if (detected.startsWith("zh-tw") || detected.startsWith("zh-hk") || detected.startsWith("zh-mo")) return "zh-TW";
+        if (detected.startsWith("zh")) return "zh-CN";
+        if (detected.startsWith("ja")) return "ja";
+        if (detected.startsWith("ko")) return "ko";
+        if (detected.startsWith("es")) return "es";
+        if (detected.startsWith("fr")) return "fr";
+        if (detected.startsWith("de")) return "de";
+        return "en";
+      }
+      if (lang in i18n) return lang;
+      return "en";
+    }
+
+    function applyPromptFormattingToView() {
+      if (!lastParsed) {
+        els.positive.textContent = t("positiveMissing");
+        els.negative.textContent = t("negativeMissing");
+        return;
+      }
+      const basePositive = lastParsed.positive || t("positiveMissing");
+      const baseNegative = lastParsed.negative || t("negativeMissing");
+      els.positive.textContent = formatApplied ? formatPromptText(basePositive) : basePositive;
+      els.negative.textContent = formatApplied ? formatPromptText(baseNegative) : baseNegative;
+    }
+
+    function formatPromptText(text) {
+      if (!text || /^\(.*not found.*\)$/i.test(text.trim())) return text;
+      const lines = text.split(/\r?\n/);
+      const nonEmptyLines = lines.filter((line) => line.trim());
+      const totalNonEmpty = nonEmptyLines.length;
+      let seenNonEmpty = 0;
+      return lines.map((line) => {
+        if (!line.trim()) return line;
+        seenNonEmpty += 1;
+        return formatPromptLine(line, totalNonEmpty, seenNonEmpty);
+      }).join("\n");
+    }
+
+    function formatPromptLine(line, totalNonEmpty, index) {
+      const original = line;
+      const trimmed = line.trim();
+      if (!trimmed || containsDoubleByteText(trimmed) || isSentenceBasedLine(trimmed)) return original;
+      if (!isTagBasedLine(trimmed, totalNonEmpty)) return original;
+
+      let working = trimmed;
+      if (els.removeUnderscores.checked) working = working.replace(/_/g, " ");
+      working = working
+        .replace(/\s+/g, " ")
+        .replace(/\s*,\s*/g, ", ")
+        .replace(/,{2,}/g, ",")
+        .replace(/\(\s+/g, "(")
+        .replace(/\s+\)/g, ")")
+        .replace(/\[\s+/g, "[")
+        .replace(/\s+\]/g, "]")
+        .replace(/\{\s+/g, "{")
+        .replace(/\s+\}/g, "}")
+        .replace(/\(\s*,/g, "(")
+        .replace(/,\s*\)/g, ")")
+        .replace(/\[\s*,/g, "[")
+        .replace(/,\s*\]/g, "]")
+        .replace(/\{\s*,/g, "{")
+        .replace(/,\s*\}/g, "}")
+        .trim();
+
+      let parts = working.split(",").map((part) => part.trim()).filter(Boolean);
+      if (els.removeDuplicates.checked) {
+        const seen = new Set();
+        parts = parts.filter((part) => {
+          const key = part.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+      working = parts.join(", ").replace(/\s+/g, " ").trim();
+      if (!working) return "";
+      if (index < totalNonEmpty) working = working.replace(/,+$/g, "") + ",";
+      else working = working.replace(/,+$/g, "");
+      return working;
+    }
+
+    function containsDoubleByteText(text) {
+      return /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/.test(text);
+    }
+
+    function isSentenceBasedLine(text) {
+      if (/[.!?]/.test(text)) return true;
+      const chunks = text.split(",").map((part) => part.trim()).filter(Boolean);
+      if (!chunks.length) return false;
+      return chunks.every((chunk) => /^(a|an|the|this|that|these|those|my|your|his|her|their|our)\b/i.test(chunk) && chunk.split(/\s+/).length >= 3);
+    }
+
+    function isTagBasedLine(text, totalNonEmpty) {
+      if (/[,_()[\]{}:]/.test(text) && !/[.!?;]/.test(text)) return true;
+      const words = text.split(/\s+/).filter(Boolean);
+      if (totalNonEmpty > 1 && words.length <= 4 && words.every((word) => /^[\w./:+-]+$/.test(word))) return true;
+      return false;
+    }
+
+    function parseMetadata(bytes, file) {
+      const records = [];
+      const detected = [];
+      const type = detectType(bytes, file.name);
+
+      if (type === "png") parsePng(bytes, records);
+      if (type === "jpeg") parseJpeg(bytes, records);
+      if (type === "webp") parseWebp(bytes, records);
+      if (type === "avif" || type === "heif" || type === "isobmff") parseIsoBmff(bytes, records);
+
+      addStringScan(bytes, records);
+      const normalized = normalizeRecords(records);
+
+      if (normalized.positive) detected.push("Positive");
+      if (normalized.negative) detected.push("Negative");
+      if (normalized.settings) detected.push("Settings");
+      if (normalized.prompt) detected.push("ComfyUI prompt");
+      if (normalized.workflow) detected.push("ComfyUI workflow");
+      if (normalized.a1111) detected.push("A1111 parameters");
+      if (normalized.xmp) detected.push("XMP");
+      if (normalized.exif) detected.push("EXIF");
+
+      return { ...normalized, records, detected };
+    }
+
+    function parsePng(bytes, records) {
+      if (!startsWith(bytes, [0x89, 0x50, 0x4e, 0x47])) return;
+      let offset = 8;
+      while (offset + 12 <= bytes.length) {
+        const length = readU32(bytes, offset);
+        const type = ascii(bytes, offset + 4, 4);
+        const start = offset + 8;
+        const end = start + length;
+        if (end > bytes.length) break;
+        if (type === "tEXt") {
+          const nul = bytes.indexOf(0, start);
+          if (nul > start && nul < end) {
+            records.push({ label: `PNG ${ascii(bytes, start, nul - start)}`, value: decoder.decode(bytes.slice(nul + 1, end)) });
+          }
+        }
+        if (type === "iTXt") {
+          const text = decoder.decode(bytes.slice(start, end));
+          records.push({ label: "PNG iTXt", value: text.replace(/\0/g, "\n") });
+        }
+        offset = end + 4;
+      }
+    }
+
+    function parseJpeg(bytes, records) {
+      if (!startsWith(bytes, [0xff, 0xd8])) return;
+      let offset = 2;
+      while (offset + 4 < bytes.length && bytes[offset] === 0xff) {
+        const marker = bytes[offset + 1];
+        const length = readU16(bytes, offset + 2);
+        const start = offset + 4;
+        const end = offset + 2 + length;
+        if (end > bytes.length) break;
+        const segment = bytes.slice(start, end);
+        const text = decoder.decode(segment);
+        if (marker === 0xe1 && text.startsWith("Exif")) records.push({ label: "JPEG EXIF", value: text });
+        if (marker === 0xe1) addDecodedExifRecords("JPEG EXIF", segment, records);
+        if (marker === 0xe1 && text.includes("xmpmeta")) records.push({ label: "JPEG XMP", value: text });
+        if (marker === 0xfe) records.push({ label: "JPEG Comment", value: text });
+        offset = end;
+      }
+    }
+
+    function parseWebp(bytes, records) {
+      if (ascii(bytes, 0, 4) !== "RIFF" || ascii(bytes, 8, 4) !== "WEBP") return;
+      let offset = 12;
+      while (offset + 8 <= bytes.length) {
+        const type = ascii(bytes, offset, 4);
+        const length = readU32LE(bytes, offset + 4);
+        const start = offset + 8;
+        const end = start + length;
+        if (end > bytes.length) break;
+        if (type === "EXIF" || type === "XMP ") {
+          records.push({ label: `WEBP ${type.trim()}`, value: decoder.decode(bytes.slice(start, end)) });
+          if (type === "EXIF") addDecodedExifRecords("WEBP EXIF", bytes.slice(start, end), records);
+        }
+        offset = end + (length % 2);
+      }
+    }
+
+    function addDecodedExifRecords(label, bytes, records) {
+      const userComment = parseExifUserComment(bytes);
+      if (userComment) records.push({ label: `${label} UserComment`, value: userComment });
+
+      const variants = [
+        decoder.decode(bytes),
+        latin1Decoder.decode(bytes),
+        utf16leDecoder.decode(bytes),
+        utf16beDecoder.decode(bytes),
+        deNullText(decoder.decode(bytes)),
+        deNullText(latin1Decoder.decode(bytes)),
+      ];
+      for (const value of variants) {
+        if (looksUseful(value) && !records.some((record) => record.value === value)) {
+          records.push({ label: `${label} decoded`, value: trimBinaryText(value) });
+        }
+      }
+    }
+
+    function parseExifUserComment(bytes) {
+      const exifStart = findExifTiffStart(bytes);
+      if (exifStart < 0 || exifStart + 8 >= bytes.length) return "";
+
+      const little = ascii(bytes, exifStart, 2) === "II";
+      const read16 = (offset) => little ? (bytes[offset] | (bytes[offset + 1] << 8)) : readU16(bytes, offset);
+      const read32 = (offset) => little ? readU32LE(bytes, offset) : readU32(bytes, offset);
+      if (read16(exifStart + 2) !== 42) return "";
+
+      const firstIfd = exifStart + read32(exifStart + 4);
+      const exifIfdOffset = findIfdTagValue(bytes, firstIfd, 0x8769, read16, read32, exifStart);
+      if (!exifIfdOffset) return "";
+
+      const userComment = findIfdTag(bytes, exifIfdOffset, 0x9286, read16, read32, exifStart);
+      if (!userComment) return "";
+
+      const raw = bytes.slice(userComment.offset, userComment.offset + userComment.count);
+      return decodeExifUserComment(raw);
+    }
+
+    function findExifTiffStart(bytes) {
+      const header = "Exif\0\0";
+      for (let i = 0; i + header.length + 8 < bytes.length; i++) {
+        if (ascii(bytes, i, header.length) === header) return i + header.length;
+      }
+      if (ascii(bytes, 0, 2) === "II" || ascii(bytes, 0, 2) === "MM") return 0;
+      return -1;
+    }
+
+    function findIfdTagValue(bytes, ifdOffset, tagId, read16, read32, tiffStart) {
+      const tag = findIfdTag(bytes, ifdOffset, tagId, read16, read32, tiffStart);
+      return tag ? tag.value : 0;
+    }
+
+    function findIfdTag(bytes, ifdOffset, tagId, read16, read32, tiffStart) {
+      if (ifdOffset <= 0 || ifdOffset + 2 > bytes.length) return null;
+      const count = read16(ifdOffset);
+      for (let i = 0; i < count; i++) {
+        const entry = ifdOffset + 2 + i * 12;
+        if (entry + 12 > bytes.length) break;
+        const tag = read16(entry);
+        if (tag !== tagId) continue;
+
+        const type = read16(entry + 2);
+        const itemCount = read32(entry + 4);
+        const bytesPerItem = ({ 1: 1, 2: 1, 3: 2, 4: 4, 7: 1 })[type] || 1;
+        const byteCount = itemCount * bytesPerItem;
+        const valueOrOffset = read32(entry + 8);
+        const offset = byteCount <= 4 ? entry + 8 : tiffStart + valueOrOffset;
+        return { type, count: byteCount, offset, value: tiffStart + valueOrOffset };
+      }
+      return null;
+    }
+
+    function decodeExifUserComment(bytes) {
+      if (!bytes.length) return "";
+      const prefix = ascii(bytes, 0, Math.min(8, bytes.length));
+      const body = bytes.slice(8);
+      if (prefix.startsWith("UNICODE")) {
+        const be = body.length > 1 && body[0] === 0 && body[1] !== 0;
+        return trimBinaryText((be ? utf16beDecoder : utf16leDecoder).decode(body));
+      }
+      if (prefix.startsWith("ASCII")) return trimBinaryText(decoder.decode(body));
+      const utf8 = trimBinaryText(decoder.decode(bytes));
+      if (looksUseful(utf8)) return utf8;
+      const noNull = trimBinaryText(deNullText(latin1Decoder.decode(bytes)));
+      return looksUseful(noNull) ? noNull : "";
+    }
+
+    function parseIsoBmff(bytes, records) {
+      walkBoxes(bytes, 0, bytes.length, "", (box) => {
+        if (["Exif", "mime", "xml ", "uuid", "mdat", "ilst", "data"].includes(box.type)) {
+          const payload = bytes.slice(box.dataStart, box.end);
+          const text = decoder.decode(payload);
+          if (looksUseful(text)) records.push({ label: `ISOBMFF ${box.path}/${box.type}`, value: trimBinaryText(text) });
+        }
+      });
+    }
+
+    function walkBoxes(bytes, start, end, path, visit) {
+      let offset = start;
+      while (offset + 8 <= end) {
+        let size = readU32(bytes, offset);
+        const type = ascii(bytes, offset + 4, 4);
+        let header = 8;
+        if (size === 1 && offset + 16 <= end) {
+          size = Number(readU64(bytes, offset + 8));
+          header = 16;
+        }
+        if (size === 0) size = end - offset;
+        const boxEnd = offset + size;
+        if (size < header || boxEnd > end) break;
+        const box = { type, start: offset, dataStart: offset + header, end: boxEnd, path };
+        visit(box);
+        if (["meta", "moov", "trak", "mdia", "minf", "dinf", "stbl", "edts", "udta", "iprp", "ipco", "iinf", "iloc", "iref", "pitm"].includes(type)) {
+          const childStart = type === "meta" ? offset + header + 4 : offset + header;
+          walkBoxes(bytes, childStart, boxEnd, `${path}/${type}`, visit);
+        }
+        offset = boxEnd;
+      }
+    }
+
+    function addStringScan(bytes, records) {
+      const text = decoder.decode(bytes);
+      const latin = latin1Decoder.decode(bytes);
+      const utf16le = utf16leDecoder.decode(bytes);
+      const utf16be = utf16beDecoder.decode(bytes);
+      const candidates = [
+        ...extractJsonAround(text, "workflow"),
+        ...extractJsonAround(text, "prompt"),
+        ...extractPrefixedJson(text, "workflow"),
+        ...extractPrefixedJson(text, "prompt"),
+        ...extractJsonAround(latin, "workflow"),
+        ...extractJsonAround(latin, "prompt"),
+        ...extractPrefixedJson(latin, "workflow"),
+        ...extractPrefixedJson(latin, "prompt"),
+        ...extractJsonAround(utf16le, "workflow"),
+        ...extractJsonAround(utf16le, "prompt"),
+        ...extractPrefixedJson(utf16le, "workflow"),
+        ...extractPrefixedJson(utf16le, "prompt"),
+        ...extractJsonAround(utf16be, "workflow"),
+        ...extractJsonAround(utf16be, "prompt"),
+        ...extractPrefixedJson(utf16be, "workflow"),
+        ...extractPrefixedJson(utf16be, "prompt"),
+        ...extractA1111(text),
+        ...extractA1111(latin),
+        ...extractA1111(utf16le),
+        ...extractA1111(utf16be),
+        ...extractA1111(deNullText(text)),
+        ...extractA1111(deNullText(latin)),
+      ];
+      for (const candidate of candidates) {
+        if (!records.some((record) => record.value === candidate.value)) {
+          records.push(candidate);
+        }
+      }
+    }
+
+    function normalizeRecords(records) {
+      let prompt = "";
+      let workflow = "";
+      let a1111 = "";
+      let positive = "";
+      let negative = "";
+      let settings = "";
+      let xmp = "";
+      let exif = "";
+
+      for (const record of records) {
+        const value = typeof record.value === "string" ? record.value : JSON.stringify(record.value);
+        const clean = trimBinaryText(value);
+        const parsed = tryJson(clean);
+
+        if (/prompt/i.test(record.label) && !prompt) prompt = pretty(parsed || clean);
+        if (/workflow/i.test(record.label) && !workflow) workflow = pretty(parsed || clean);
+        if (/xmp/i.test(record.label) && !xmp) xmp = clean;
+        if (/exif/i.test(record.label) && !exif) exif = clean;
+
+        if (parsed && parsed.prompt && !prompt) prompt = pretty(parsed.prompt);
+        if (parsed && parsed.workflow && !workflow) workflow = pretty(parsed.workflow);
+        if (parsed && looksLikeComfyGraphObject(parsed)) {
+          const comfy = extractComfyPromptData(parsed);
+          if (!positive || looksLikeBinaryJunk(positive)) positive = comfy.positive || positive;
+          if (!negative || looksLikeBinaryJunk(negative)) negative = comfy.negative || negative;
+          if (!settings || hasComfyReferenceValue(settings)) settings = comfy.settings || settings;
+        }
+        if (!a1111 && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(clean)) {
+          const isComfyGraphRecord = parsed && looksLikeComfyGraphObject(parsed);
+          const hasNegativePromptMarker = /\bNegative prompt:\s*/i.test(clean);
+          if (!isComfyGraphRecord || hasNegativePromptMarker) {
+            a1111 = clean;
+            const split = splitA1111(clean);
+            const canUseA1111Positive = hasNegativePromptMarker || !isComfyGraphRecord;
+            if (canUseA1111Positive && !looksLikeBinaryJunk(split.positive)) positive = positive || split.positive;
+            negative = negative || split.negative;
+            settings = settings || split.settings;
+          }
+        }
+      }
+      if (!positive && prompt && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:)/i.test(prompt)) {
+        const split = splitA1111(prompt);
+        positive = looksLikeBinaryJunk(split.positive) ? positive : split.positive;
+        negative = split.negative;
+        settings = split.settings;
+      }
+      return { prompt, workflow, a1111, positive, negative, settings, xmp, exif };
+    }
+
+    function looksLikeComfyGraphObject(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+      return Object.values(value).some((node) => node && typeof node === "object" && node.class_type && node.inputs);
+    }
+
+    function extractComfyPromptData(graph) {
+      const positiveRefs = new Set();
+      const negativeRefs = new Set();
+      const textNodes = [];
+      const settings = {};
+
+      for (const [id, node] of Object.entries(graph)) {
+        if (!node || typeof node !== "object") continue;
+        const inputs = node.inputs || {};
+        const classType = String(node.class_type || "");
+        const title = String(node._meta?.title || "");
+        const label = `${classType} ${title}`.toLowerCase();
+
+        addNodeRef(positiveRefs, inputs.positive);
+        addNodeRef(negativeRefs, inputs.negative);
+
+        const promptText = typeof inputs.prompt === "string" ? inputs.prompt : "";
+        const text = typeof inputs.text === "string" ? inputs.text : promptText;
+        if (text.trim()) {
+          textNodes.push({ id, text: normalizePromptText(text.trim()), label });
+        }
+
+        if (isScalarValue(inputs.steps) && settings.Steps == null) settings.Steps = inputs.steps;
+        if (isScalarValue(inputs.cfg) && settings["CFG scale"] == null) settings["CFG scale"] = inputs.cfg;
+        if (isScalarValue(inputs.seed) && settings.Seed == null) settings.Seed = inputs.seed;
+        if (isScalarValue(inputs.noise_seed) && settings.Seed == null) settings.Seed = inputs.noise_seed;
+        if (isScalarValue(inputs.sampler_name) && settings.Sampler == null) settings.Sampler = inputs.sampler_name;
+        if (isScalarValue(inputs.width) && isScalarValue(inputs.height) && settings.Size == null) settings.Size = `${inputs.width}x${inputs.height}`;
+        if (isScalarValue(inputs.model_name) && settings.Model == null) settings.Model = inputs.model_name;
+        if (isScalarValue(inputs.unet_name) && settings.Model == null) settings.Model = inputs.unet_name;
+      }
+
+      const positives = [];
+      const negatives = [];
+      for (const item of textNodes) {
+        if (negativeRefs.has(item.id) || /negative/.test(item.label)) negatives.push(item.text);
+        else if (positiveRefs.has(item.id) || /positive|encode|prompt/.test(item.label)) positives.push(item.text);
+        else positives.push(item.text);
+      }
+
+      return {
+        positive: positives.join("\n\n").trim(),
+        negative: negatives.join("\n\n").trim(),
+        settings: Object.entries(settings).map(([key, value]) => `${key}: ${value}`).join(", "),
+      };
+    }
+
+    function addNodeRef(set, value) {
+      if (Array.isArray(value) && value.length) set.add(String(value[0]));
+    }
+
+    function isScalarValue(value) {
+      return value != null && !Array.isArray(value) && typeof value !== "object";
+    }
+
+    function normalizePromptText(text) {
+      const parsed = tryJson(text);
+      if (!parsed || typeof parsed !== "object") return text;
+      if (parsed.high_level_description || parsed.style_description || parsed.compositional_deconstruction) {
+        return JSON.stringify(parsed, null, 2);
+      }
+      return flattenPromptObject(parsed).join("\n").trim() || JSON.stringify(parsed, null, 2);
+    }
+
+    function flattenPromptObject(value, prefix = "") {
+      const lines = [];
+      if (typeof value === "string") {
+        if (value.trim()) lines.push(prefix ? `${prefix}: ${value.trim()}` : value.trim());
+        return lines;
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) lines.push(...flattenPromptObject(item, prefix));
+        return lines;
+      }
+      if (!value || typeof value !== "object") return lines;
+      for (const [key, item] of Object.entries(value)) {
+        if (key === "bbox" || key === "color_palette") continue;
+        if (typeof item === "string") {
+          if (item.trim()) lines.push(`${humanizePromptKey(key)}: ${item.trim()}`);
+        } else {
+          lines.push(...flattenPromptObject(item, humanizePromptKey(key)));
+        }
+      }
+      return lines;
+    }
+
+    function humanizePromptKey(key) {
+      return String(key).replace(/_/g, " ");
+    }
+
+    function looksLikeBinaryJunk(text) {
+      const clean = String(text || "").trim();
+      if (!clean) return true;
+      const lines = clean.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (!lines.length) return true;
+      const useful = lines.filter((line) => isUsefulPromptLine(line));
+      return useful.length === 0;
+    }
+
+    function hasComfyReferenceValue(text) {
+      return /\[['"][^'"]+['"],\s*0\]/.test(String(text || ""));
+    }
+
+    function isComfyWorkflow(parsed) {
+      if (parsed.workflow || (parsed.prompt && looksLikeComfyGraph(parsed.prompt))) return true;
+      return parsed.records.map((record) => cleanRawValue(record)).some((value) => looksLikeComfyGraph(value));
+    }
+
+    function isA1111Metadata(parsed) {
+      if (parsed.a1111) return true;
+      return parsed.records
+        .map((record) => cleanRawValue(record))
+        .some((value) => /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:|Model hash:)/i.test(value));
+    }
+
+    function renderSettingsChips(settings) {
+      const pairs = parseSettings(settings);
+      if (!pairs.length) return "";
+      return pairs.map(([key, value]) => `<span class="chip">${escapeHtml(key)}: ${escapeHtml(value)}</span>`).join("");
+    }
+
+    function parseSettings(settings) {
+      if (!settings || /\(settings not found\)/i.test(settings)) return [];
+      const wanted = new Set(["Steps", "Sampler", "CFG scale", "Seed", "Size", "Model", "Model hash", "Clip skip", "RNG"]);
+      const pairs = [];
+      for (const part of settings.split(",")) {
+        const match = part.trim().match(/^([^:]+):\s*(.+)$/);
+        if (!match) continue;
+        const key = match[1].trim();
+        const value = match[2].trim();
+        if (wanted.has(key)) pairs.push([key.toUpperCase().replace(/\s+/g, ""), value]);
+      }
+      return pairs;
+    }
+
+    function renderCivitaiCandidates(parsed) {
+      const candidates = extractCivitaiCandidates(parsed);
+      if (!candidates.length) {
+        els.civitaiResources.innerHTML = `<div class="resource-empty">${escapeHtml(t("noHashes"))}</div>`;
+        return;
+      }
+      els.civitaiResources.innerHTML = candidates.map((item) => `
+        <div class="resource-item">
+          <div class="resource-thumb"></div>
+          <div class="resource-body">
+            <div class="resource-title">${escapeHtml(item.label)}</div>
+            <div class="resource-meta">${escapeHtml(item.hash)}</div>
+            <div class="resource-meta">${escapeHtml(t("lookupReady"))}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    async function lookupCivitaiResources() {
+      if (!lastParsed) return;
+      const candidates = extractCivitaiCandidates(lastParsed);
+      if (!candidates.length) {
+        els.civitaiResources.innerHTML = `<div class="resource-empty">${escapeHtml(t("noHashes"))}</div>`;
+        return;
+      }
+
+      els.civitaiLookup.textContent = t("lookupRunning");
+      els.civitaiLookup.disabled = true;
+      const results = await Promise.all(candidates.map(async (candidate) => {
+        try {
+          const response = await fetch(`https://civitai.com/api/v1/model-versions/by-hash/${encodeURIComponent(candidate.hash)}`);
+          if (!response.ok) return { candidate, error: t("notFound") };
+          return { candidate, data: await response.json() };
+        } catch {
+          return { candidate, error: t("lookupFailed") };
+        }
+      }));
+      els.civitaiResources.innerHTML = results.map(renderCivitaiResult).join("");
+      els.civitaiLookup.textContent = t("lookupDone");
+      els.civitaiLookup.disabled = false;
+      setTimeout(() => {
+        els.civitaiLookup.textContent = t("lookup");
+      }, 1200);
+    }
+
+    function renderCivitaiResult(result) {
+      if (result.error) {
+        return `
+          <div class="resource-item">
+            <div class="resource-thumb"></div>
+            <div class="resource-body">
+              <div class="resource-title">${escapeHtml(result.candidate.label)}</div>
+              <div class="resource-meta">${escapeHtml(result.candidate.hash)}</div>
+              <div class="resource-meta">${escapeHtml(result.error)}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      const data = result.data;
+      const model = data.model || {};
+      const title = model.name || result.candidate.label;
+      const version = data.name || "";
+      const modelType = model.type || "";
+      const image = civitaiImage(data);
+      const pageUrl = `https://civitai.com/models/${model.id || data.modelId || ""}?modelVersionId=${data.id || ""}`;
+      return `
+        <div class="resource-item">
+          ${image ? `<img class="resource-thumb" src="${escapeHtml(image.webp)}" data-fallback="${escapeHtml(image.original)}" onerror="this.onerror=null;this.src=this.dataset.fallback" alt="">` : `<div class="resource-thumb"></div>`}
+          <div class="resource-body">
+            <div class="resource-title">${escapeHtml(title)}</div>
+            <div class="resource-meta">${escapeHtml([version, modelType].filter(Boolean).join(" / "))}</div>
+            <div class="resource-meta">${escapeHtml(result.candidate.label)}: ${escapeHtml(result.candidate.hash)}</div>
+            <a class="resource-link" href="${escapeHtml(pageUrl)}" target="_blank" rel="noreferrer">Civitai</a>
+          </div>
+        </div>
+      `;
+    }
+
+    function extractCivitaiCandidates(parsed) {
+      const text = [
+        parsed.settings || "",
+        parsed.a1111 || "",
+        ...(parsed.records || []).map((record) => cleanRawValue(record)),
+      ].join("\n");
+      const found = new Map();
+
+      const modelHash = text.match(/\bModel hash:\s*([a-f0-9]{8,64})/i);
+      if (modelHash) found.set(modelHash[1].toLowerCase(), { label: "Checkpoint", hash: modelHash[1].toLowerCase() });
+
+      const lora = text.match(/\bLora hashes:\s*"?([^"\n]+)"?/i);
+      if (lora) {
+        for (const part of lora[1].split(",")) {
+          const match = part.trim().match(/(.+?):\s*([a-f0-9]{8,64})$/i);
+          if (!match) continue;
+          const label = `LoRA: ${match[1].trim()}`;
+          const hash = match[2].toLowerCase();
+          found.set(hash, { label, hash });
+        }
+      }
+
+      return [...found.values()];
+    }
+
+    function civitaiImage(data) {
+      const image = Array.isArray(data.images) ? data.images[0] : null;
+      if (!image?.url) return "";
+      return { original: image.url, webp: preferWebp(image.url) };
+    }
+
+    function preferWebp(url) {
+      return url.replace(/\.(png|jpe?g)(\?.*)?$/i, ".webp$2");
+    }
+
+    function copyFromElement(button, id) {
+      copyText(button, $(id).textContent || "");
+    }
+
+    async function copyText(button, text) {
+      const clean = text.replace(/\([^)]* not found\)/gi, "").trim();
+      if (!clean) return;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(clean);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = clean;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      const original = button.textContent;
+      button.textContent = t("copied");
+      button.classList.add("done");
+      setTimeout(() => {
+        button.textContent = original;
+        button.classList.remove("done");
+      }, 1200);
+    }
+
+    function looksLikeComfyGraph(text) {
+      return /"class_type"\s*:|"inputs"\s*:|"outputs"\s*:|"widgets_values"\s*:|"links"\s*:/i.test(text);
+    }
+
+    function cleanRawValue(record) {
+      const value = typeof record.value === "string" ? record.value : pretty(record.value);
+      const clean = trimBinaryText(value);
+      if (/EXIF/i.test(record.label)) {
+        const starts = [
+          clean.search(/\bmasterpiece\b/i),
+          clean.search(/\bNegative prompt:\s*/i),
+          clean.search(/\bSteps:\s*/i),
+          clean.search(/\bprompt:\s*[{[]/i),
+          clean.search(/"prompt"\s*:/i),
+          clean.search(/"workflow"\s*:/i),
+        ].filter((index) => index >= 0);
+        return starts.length ? clean.slice(Math.min(...starts)).trim() : clean;
+      }
+      return clean;
+    }
+
+    function extractJsonAround(text, key) {
+      const out = [];
+      const quoted = `"${key}"`;
+      let index = text.indexOf(quoted);
+      while (index !== -1) {
+        const start = text.lastIndexOf("{", index);
+        const end = findJsonEnd(text, start);
+        if (start !== -1 && end !== -1) {
+          const json = text.slice(start, end + 1);
+          out.push({ label: `Scan ${key}`, value: json });
+        }
+        index = text.indexOf(quoted, index + quoted.length);
+      }
+      return out.slice(0, 8);
+    }
+
+    function extractPrefixedJson(text, key) {
+      const out = [];
+      const pattern = new RegExp(`(?:^|[\\x00\\n\\r])${key}\\s*:`, "gi");
+      let match = pattern.exec(text);
+      while (match) {
+        const brace = text.indexOf("{", pattern.lastIndex);
+        if (brace !== -1) {
+          const end = findJsonEnd(text, brace);
+          if (end !== -1) out.push({ label: `Scan ${key}`, value: text.slice(brace, end + 1) });
+        }
+        match = pattern.exec(text);
+      }
+      return out.slice(0, 8);
+    }
+
+    function extractA1111(text) {
+      const match = text.match(/(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)[\s\S]{0,5000}/i);
+      if (!match) return [];
+      const markerIndex = match.index + (match[0][0] === "\n" || match[0][0] === "\r" || match[0][0] === "\0" ? 1 : 0);
+      const start = findA1111Start(text, markerIndex);
+      const end = findA1111End(text, markerIndex + match[0].length);
+      return [{ label: "Scan A1111", value: trimBinaryText(text.slice(start, end)) }];
+    }
+
+    function splitA1111(text) {
+      const clean = trimBinaryText(text);
+      const negativeMarker = clean.search(/\bNegative prompt:\s*/i);
+      const stepsMarker = clean.search(/\bSteps:\s*/i);
+      if (negativeMarker !== -1) {
+        const negativeStart = clean.match(/\bNegative prompt:\s*/i).index;
+        const markerLength = clean.match(/\bNegative prompt:\s*/i)[0].length;
+        const settingsStart = stepsMarker !== -1 && stepsMarker > negativeStart ? stepsMarker : clean.length;
+        return {
+          positive: cleanPositive(clean.slice(0, negativeStart)),
+          negative: clean.slice(negativeStart + markerLength, settingsStart).trim(),
+          settings: settingsStart < clean.length ? cleanSettings(clean.slice(settingsStart)) : "",
+        };
+      }
+      if (stepsMarker !== -1) {
+        return {
+          positive: cleanPositive(clean.slice(0, stepsMarker)),
+          negative: "",
+          settings: cleanSettings(clean.slice(stepsMarker)),
+        };
+      }
+      return { positive: cleanPositive(clean), negative: "", settings: "" };
+    }
+
+    function findA1111Start(text, markerIndex) {
+      const windowStart = Math.max(0, markerIndex - 4000);
+      const before = text.slice(windowStart, markerIndex);
+      const promptStart = findPromptStart(before);
+      if (promptStart !== -1) return windowStart + promptStart;
+      const separators = ["parameters", "UserComment", "Description"];
+      for (const separator of separators) {
+        const index = before.lastIndexOf(separator);
+        if (index !== -1) return windowStart + index + separator.length;
+      }
+      const doubleBreak = Math.max(before.lastIndexOf("\n\n"), before.lastIndexOf("\r\n\r\n"));
+      if (doubleBreak !== -1) return windowStart + doubleBreak + 2;
+      return windowStart;
+    }
+
+    function findA1111End(text, fallbackEnd) {
+      const tail = text.slice(fallbackEnd, fallbackEnd + 4000);
+      const markers = [
+        tail.search(/\n\s*[{[]\s*"/),
+        tail.search(/"\s*:\s*[{[]/),
+        tail.search(/\n\s*"workflow"\s*:/i),
+        tail.search(/\n\s*"prompt"\s*:/i),
+      ].filter((index) => index > 0);
+      return markers.length ? fallbackEnd + Math.min(...markers) : fallbackEnd;
+    }
+
+    function findPromptStart(text) {
+      const patterns = [
+        /\bmasterpiece\b/i,
+        /\bbest quality\b/i,
+        /\bscore_[0-9]\b/i,
+        /\b1girl\b/i,
+        /\b1boy\b/i,
+        /\bsolo\b/i,
+        /<lora:/i,
+        /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/,
+      ];
+      let best = -1;
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match && (best === -1 || match.index < best)) best = match.index;
+      }
+      return best;
+    }
+
+    function cleanSettings(text) {
+      const clean = trimBinaryText(text);
+      const line = clean.split(/\r?\n/).find((item) => /\bSteps:\s*/i.test(item)) || clean;
+      const stops = [
+        line.search(/\s+[{[]\s*"/),
+        line.search(/\s+prompt:\s*[{[]/i),
+        line.search(/\s+"prompt"\s*:/i),
+        line.search(/\s+"workflow"\s*:/i),
+      ].filter((index) => index > 0);
+      return (stops.length ? line.slice(0, Math.min(...stops)) : line).trim();
+    }
+
+    function cleanPositive(text) {
+      const clean = trimBinaryText(text);
+      const starts = [
+        clean.search(/\bmasterpiece\b/i),
+        clean.search(/\bbest quality\b/i),
+        clean.search(/\bscore_[0-9]\b/i),
+        clean.search(/\b1girl\b/i),
+        clean.search(/\b1boy\b/i),
+        clean.search(/\bsolo\b/i),
+        clean.search(/<lora:/i),
+        clean.search(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/),
+      ].filter((index) => index >= 0);
+      if (starts.length) return clean.slice(Math.min(...starts)).trim();
+
+      const lines = clean.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const useful = lines.filter((line) => isUsefulPromptLine(line));
+      return (useful.join(" ") || clean).trim();
+    }
+
+    function isUsefulPromptLine(line) {
+      const text = line.replace(/\uFFFD/g, "").trim();
+      if (text.length < 2) return false;
+      if (/^(MM|II|\*|>|\/|\\|\|)+$/i.test(text)) return false;
+      if (/^[\x00-\x1f\x7f-\x9f\s]+$/.test(text)) return false;
+      if (/[<>(),_:a-zA-Z0-9]/.test(text) && text.length > 4) return true;
+      return /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/.test(text);
+    }
+
+    function findJsonEnd(text, start) {
+      if (start < 0) return -1;
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+        if (inString) {
+          if (escaped) escaped = false;
+          else if (ch === "\\") escaped = true;
+          else if (ch === "\"") inString = false;
+          continue;
+        }
+        if (ch === "\"") inString = true;
+        if (ch === "{") depth++;
+        if (ch === "}") depth--;
+        if (depth === 0) return i;
+      }
+      return -1;
+    }
+
+    function detectType(bytes, name = "") {
+      const lower = name.toLowerCase();
+      if (lower.endsWith(".avif")) return "avif";
+      if (lower.endsWith(".heif") || lower.endsWith(".heic")) return "heif";
+      if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47])) return "png";
+      if (startsWith(bytes, [0xff, 0xd8])) return "jpeg";
+      if (ascii(bytes, 0, 4) === "RIFF" && ascii(bytes, 8, 4) === "WEBP") return "webp";
+      if (ascii(bytes, 4, 4) === "ftyp") return ascii(bytes, 8, 4) === "avif" ? "avif" : "isobmff";
+      return "unknown";
+    }
+
+    function looksUseful(text) {
+      return /workflow|prompt|ComfyUI|Negative prompt|Steps:|Seed:|xmpmeta|Exif/i.test(text);
+    }
+
+    function trimBinaryText(text) {
+      return text
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]+/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim()
+        .slice(0, 200000);
+    }
+
+    function deNullText(text) {
+      return text.replace(/\0/g, "");
+    }
+
+    function tryJson(text) {
+      try { return JSON.parse(text); } catch { return null; }
+    }
+
+    function pretty(value) {
+      if (typeof value === "string") {
+        const parsed = tryJson(value);
+        return parsed ? JSON.stringify(parsed, null, 2) : value;
+      }
+      return JSON.stringify(value, null, 2);
+    }
+
+    function readU16(bytes, offset) {
+      return (bytes[offset] << 8) | bytes[offset + 1];
+    }
+
+    function readU32(bytes, offset) {
+      return ((bytes[offset] * 0x1000000) + ((bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3])) >>> 0;
+    }
+
+    function readU32LE(bytes, offset) {
+      return (bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)) >>> 0;
+    }
+
+    function readU64(bytes, offset) {
+      return (BigInt(readU32(bytes, offset)) << 32n) | BigInt(readU32(bytes, offset + 4));
+    }
+
+    function ascii(bytes, offset, length) {
+      return String.fromCharCode(...bytes.slice(offset, offset + length));
+    }
+
+    function startsWith(bytes, signature) {
+      return signature.every((byte, index) => bytes[index] === byte);
+    }
+
+    function formatBytes(value) {
+      if (value < 1024) return `${value} B`;
+      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+      return `${(value / 1024 / 1024).toFixed(2)} MB`;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#039;",
+      }[ch]));
+    }
+
+    if (localStorage.getItem("avifPromptViewerThemeDefaultVersion") !== defaultThemeVersion) {
+      if (!localStorage.getItem("avifPromptViewerTheme") || localStorage.getItem("avifPromptViewerTheme") === "dark") {
+        localStorage.setItem("avifPromptViewerTheme", defaultTheme);
+      }
+      localStorage.setItem("avifPromptViewerThemeDefaultVersion", defaultThemeVersion);
+    }
+    setTheme(localStorage.getItem("avifPromptViewerTheme") || defaultTheme);
+    setLanguage(localStorage.getItem("avifPromptViewerLanguage") || "auto");
+    setThumbnailSize(folderThumbSize, false);
+    updateFolderNav();
+  </script>
+</body>
+</html>

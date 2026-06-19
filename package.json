@@ -1,0 +1,59 @@
+{
+  "name": "ez-prompt-viewer",
+  "version": "1.0.0",
+  "description": "Windows desktop app for viewing image prompt metadata.",
+  "main": "main.js",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^38.4.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "local.ez-prompt-viewer",
+    "productName": "EZ Prompt Viewer",
+    "files": [
+      "main.js",
+      "package.json",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "avif_prompt_viewer.html",
+        "to": "avif_prompt_viewer.html"
+      },
+      {
+        "from": "README.md",
+        "to": "README.md"
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "about-character.*",
+          "icon.*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "artifactName": "EZ Prompt Viewer Setup.${ext}",
+      "include": "build/installer.nsh",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "EZ Prompt Viewer"
+    }
+  }
+}
