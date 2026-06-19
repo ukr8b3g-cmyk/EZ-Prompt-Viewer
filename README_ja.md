@@ -106,15 +106,14 @@ ComfyUI ワークフローでは、[ComfyUI-save-webp-meta-node](https://github.
 確認済みサンプル:
 
 - SDXL
-- Illustrious XL
-- Anime-style workflows
-- Qwen-Image 2512
-- Qwen-Image-Edit 2511
-- ZIT / Z Image workflows, including `z-image-turbo` and `z-image-base`
-- `Ernie-Image-Turbo`
-- `Ernie-Image`
+- Illustrious-XL
+- Anima
+- Qwen-Image
+- Qwen-Image-Edit
+- Z-image
+- Ernie-Image
 - Microsoft Lens
-- Flux / Klein workflows
+- Flux.Klein 
 
 ## 注意
 
