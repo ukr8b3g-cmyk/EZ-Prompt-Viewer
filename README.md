@@ -1,5 +1,7 @@
 # EZ Prompt Viewer
 
+[日本語 README](README_ja.md)
+
 EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 prompt metadata from image files.
 
 Images are processed locally on your machine.
