@@ -2716,6 +2716,12 @@
 
         if (parsed && parsed.prompt && !prompt) prompt = pretty(parsed.prompt);
         if (parsed && parsed.workflow && !workflow) workflow = pretty(parsed.workflow);
+        if (parsed && looksLikeKrea2WorkflowObject(parsed)) {
+          const krea2 = extractKrea2PromptData(parsed);
+          if (krea2.positive) positive = krea2.positive;
+          if (krea2.negative) negative = negative || krea2.negative;
+          if (krea2.settings) settings = settings || krea2.settings;
+        }
         if (parsed && looksLikeComfyGraphObject(parsed)) {
           const comfy = extractComfyPromptData(parsed);
           if (!positive || looksLikeBinaryJunk(positive)) positive = comfy.positive || positive;
@@ -2747,6 +2753,146 @@
     function looksLikeComfyGraphObject(value) {
       if (!value || typeof value !== "object" || Array.isArray(value)) return false;
       return Object.values(value).some((node) => node && typeof node === "object" && node.class_type && node.inputs);
+    }
+
+    function looksLikeKrea2WorkflowObject(value) {
+      return Boolean(value && Array.isArray(value.nodes) && value.nodes.some((node) =>
+        node && (
+          node.type === "Krea2ElementFramingV1Prompt" ||
+          node.type === "Krea2ElementFramingV1Canvas" ||
+          node.type === "Krea2ElementJSONExportV1"
+        )
+      ));
+    }
+
+    function extractKrea2PromptData(workflow) {
+      const nodes = Array.isArray(workflow.nodes) ? workflow.nodes : [];
+      const promptNode = nodes.find((node) => node.type === "Krea2ElementFramingV1Prompt");
+      const canvasNode = nodes.find((node) => node.type === "Krea2ElementFramingV1Canvas");
+      const exportNode = nodes.find((node) => node.type === "Krea2ElementJSONExportV1");
+      if (!promptNode) return { positive: "", negative: "", settings: "" };
+
+      const promptValues = promptNode.widgets_values || [];
+      const canvasValues = canvasNode?.widgets_values || [];
+      const exportValues = exportNode?.widgets_values || [];
+      const bboxMode = exportValues[0] || "normalized_1000";
+      const width = Number(canvasValues[0]) || 1024;
+      const height = Number(canvasValues[1]) || 1024;
+      const layout = tryJson(canvasValues[3]) || {};
+      const boxes = Array.isArray(layout.boxes) ? [...layout.boxes].sort((a, b) => (a.z || 0) - (b.z || 0)) : [];
+      const slotData = {
+        red: { prompt: promptValues[1], type: promptValues[6] },
+        blue: { prompt: promptValues[2], type: promptValues[7] },
+        yellow: { prompt: promptValues[3], type: promptValues[8] },
+        green: { prompt: promptValues[4], type: promptValues[9] },
+        magenta: { prompt: promptValues[5], type: promptValues[10] },
+      };
+      const elements = [];
+      for (const box of boxes) {
+        const slot = String(box?.slot || "").toLowerCase();
+        const data = slotData[slot];
+        const content = String(data?.prompt || "").trim();
+        if (!data || !content) continue;
+        const bbox = krea2OutputBbox(box, width, height, bboxMode);
+        if (!bbox.length) continue;
+        const type = String(data.type || "obj").toLowerCase() === "text" ? "text" : "obj";
+        if (type === "text") {
+          const split = splitKrea2VisibleText(content);
+          if (!split.text) continue;
+          elements.push({
+            type: "text",
+            bbox,
+            text: split.text,
+            desc: appendKrea2PositionHint(split.desc, box),
+          });
+        } else {
+          elements.push({
+            type: "obj",
+            bbox,
+            desc: appendKrea2PositionHint(content, box),
+          });
+        }
+      }
+
+      const negative = extractKrea2Negative(nodes);
+      const camera = tryJson(canvasValues[4]) || {};
+      const settings = [
+        `Size: ${width}x${height}`,
+        camera.iso ? `ISO: ${camera.iso}` : "",
+        camera.shutter ? `Shutter: ${camera.shutter}` : "",
+        camera.aperture ? `Aperture: ${camera.aperture}` : "",
+        camera.focal_length ? `Focal length: ${camera.focal_length}` : "",
+      ].filter(Boolean).join(", ");
+      const positive = {
+        aspect_ratio: krea2AspectRatio(width, height),
+        high_level_description: String(promptValues[0] || "").trim(),
+        compositional_deconstruction: {
+          background: "",
+          elements,
+        },
+      };
+      return {
+        positive: JSON.stringify(positive, null, 2),
+        negative,
+        settings,
+      };
+    }
+
+    function extractKrea2Negative(nodes) {
+      const negatives = [];
+      for (const node of nodes) {
+        const label = `${node?.type || ""} ${node?.title || ""}`.toLowerCase();
+        const text = String(node?.widgets_values?.[0] || "").trim();
+        if (text && /negative/.test(label)) negatives.push(normalizePromptText(text));
+      }
+      return [...new Set(negatives)].join("\n\n").trim();
+    }
+
+    function krea2OutputBbox(box, width, height, mode) {
+      const pixelBbox = krea2BoxToPixels(box, width, height);
+      if (mode === "pixel") return pixelBbox;
+      return [
+        Math.round(pixelBbox[0] / width * 1000),
+        Math.round(pixelBbox[1] / height * 1000),
+        Math.round(pixelBbox[2] / width * 1000),
+        Math.round(pixelBbox[3] / height * 1000),
+      ];
+    }
+
+    function krea2BoxToPixels(box, width, height) {
+      if (!box || typeof box !== "object") return [];
+      if (Array.isArray(box.bbox) && box.bbox.length >= 4) return box.bbox.slice(0, 4).map((value) => Math.round(Number(value) || 0));
+      return [
+        Math.round(Number(box.nx1 || 0) * width),
+        Math.round(Number(box.ny1 || 0) * height),
+        Math.round(Number(box.nx2 || 0) * width),
+        Math.round(Number(box.ny2 || 0) * height),
+      ];
+    }
+
+    function appendKrea2PositionHint(desc, box) {
+      const hint = String(box?.position_hint || "").trim();
+      return hint ? `${desc}, ${hint}` : desc;
+    }
+
+    function splitKrea2VisibleText(value) {
+      const parts = String(value || "").split("|");
+      return {
+        text: parts[0].trim(),
+        desc: parts.slice(1).join("|").trim(),
+      };
+    }
+
+    function krea2AspectRatio(width, height) {
+      const divisor = gcd(width, height);
+      return `${width / divisor}:${height / divisor}`;
+    }
+
+    function gcd(a, b) {
+      a = Math.abs(Number(a) || 1);
+      b = Math.abs(Number(b) || 1);
+      while (b) [a, b] = [b, a % b];
+      return a || 1;
     }
 
     function extractComfyPromptData(graph) {
