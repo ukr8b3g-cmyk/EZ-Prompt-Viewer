@@ -1,5 +1,11 @@
 # EZ Prompt Viewer
 
+## 最新の変更点
+
+- Krea2 Element Framing のメタデータ読み取りに対応
+- Krea2 の色別に分かれたプロンプトを、1つのPositive promptとして表示
+- Krea2 のNegative promptがメタデータ内にある場合は表示
+
 <img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/08f87802-4766-4c90-80f1-347f6dd9a0f4" />
 
 

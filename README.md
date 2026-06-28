@@ -1,4 +1,11 @@
 # EZ Prompt Viewer
+
+## Latest Changes
+
+- Added Krea2 Element Framing metadata support.
+- Krea2 split color prompts are combined into one positive prompt view.
+- Krea2 negative prompts are shown when negative text metadata is available.
+
 <img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/f9416ab2-c09c-4e81-a45d-0ebb464fe1fe" />
 
 
