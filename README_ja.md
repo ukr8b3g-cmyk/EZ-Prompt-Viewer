@@ -5,6 +5,7 @@
 - Krea2 Element Framing のメタデータ読み取りに対応
 - Krea2 の色別に分かれたプロンプトを、1つのPositive promptとして表示
 - Krea2 のNegative promptがメタデータ内にある場合は表示
+- Krea2 BBOX のプロンプトスロット補完と、取得可能な BBOX / ポーズプリセット / プロンプトエフェクト / 背景エフェクト情報の表示に対応
 
 <img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/08f87802-4766-4c90-80f1-347f6dd9a0f4" />
 
@@ -37,6 +38,7 @@ Windows インストーラは以下の Release からダウンロードできま
 - スライドショー再生
 - 画像クリックで拡大表示
 - Positive prompt / Negative prompt / Settings / Summary を表示
+- Krea2 BBOX のプロンプトスロット、BBOX、ポーズプリセット、プロンプトエフェクト、背景エフェクトをメタデータ内にある場合のみ表示
 - Summary に ComfyUI workflow / A1111 metadata の有無を表示
 - 各セクションの折りたたみ
 - プロンプト、メタデータ、生成情報のコピー

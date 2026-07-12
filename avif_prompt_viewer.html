@@ -2781,16 +2781,16 @@
       const layout = tryJson(canvasValues[3]) || {};
       const boxes = Array.isArray(layout.boxes) ? [...layout.boxes].sort((a, b) => (a.z || 0) - (b.z || 0)) : [];
       const slotData = {
-        red: { prompt: promptValues[1], type: promptValues[6] },
-        blue: { prompt: promptValues[2], type: promptValues[7] },
-        yellow: { prompt: promptValues[3], type: promptValues[8] },
-        green: { prompt: promptValues[4], type: promptValues[9] },
-        magenta: { prompt: promptValues[5], type: promptValues[10] },
+        red: { slot: "red", prompt: promptValues[1], type: promptValues[6], framing: promptValues[13], angle: promptValues[18] },
+        blue: { slot: "blue", prompt: promptValues[2], type: promptValues[7], framing: promptValues[14], angle: promptValues[19] },
+        yellow: { slot: "yellow", prompt: promptValues[3], type: promptValues[8], framing: promptValues[15], angle: promptValues[20] },
+        green: { slot: "green", prompt: promptValues[4], type: promptValues[9], framing: promptValues[16], angle: promptValues[21] },
+        magenta: { slot: "magenta", prompt: promptValues[5], type: promptValues[10], framing: promptValues[17], angle: promptValues[22] },
       };
       const elements = [];
       for (const box of boxes) {
         const slot = String(box?.slot || "").toLowerCase();
-        const data = slotData[slot];
+        const data = resolveKrea2SlotData(slotData, slot);
         const content = String(data?.prompt || "").trim();
         if (!data || !content) continue;
         const bbox = krea2OutputBbox(box, width, height, bboxMode);
@@ -2801,6 +2801,8 @@
           if (!split.text) continue;
           elements.push({
             type: "text",
+            slot,
+            prompt_slot: data.slot,
             bbox,
             text: split.text,
             desc: appendKrea2PositionHint(split.desc, box),
@@ -2808,6 +2810,8 @@
         } else {
           elements.push({
             type: "obj",
+            slot,
+            prompt_slot: data.slot,
             bbox,
             desc: appendKrea2PositionHint(content, box),
           });
@@ -2816,12 +2820,14 @@
 
       const negative = extractKrea2Negative(nodes);
       const camera = tryJson(canvasValues[4]) || {};
+      const krea2Info = extractKrea2BboxInfo(nodes, slotData, boxes, width, height, bboxMode);
       const settings = [
         `Size: ${width}x${height}`,
         camera.iso ? `ISO: ${camera.iso}` : "",
         camera.shutter ? `Shutter: ${camera.shutter}` : "",
         camera.aperture ? `Aperture: ${camera.aperture}` : "",
         camera.focal_length ? `Focal length: ${camera.focal_length}` : "",
+        krea2Info,
       ].filter(Boolean).join(", ");
       const positive = {
         aspect_ratio: krea2AspectRatio(width, height),
@@ -2836,6 +2842,81 @@
         negative,
         settings,
       };
+    }
+
+    function resolveKrea2SlotData(slotData, slot) {
+      const data = slotData[slot];
+      if (String(data?.prompt || "").trim()) return data;
+
+      const filledSlots = Object.values(slotData).filter((item) => String(item?.prompt || "").trim());
+      return filledSlots.length === 1 ? filledSlots[0] : data;
+    }
+
+    function extractKrea2BboxInfo(nodes, slotData, boxes, width, height, bboxMode) {
+      const lines = [];
+      const slotLines = [];
+      for (const box of boxes) {
+        const slot = String(box?.slot || "").toLowerCase();
+        const data = resolveKrea2SlotData(slotData, slot);
+        const prompt = String(data?.prompt || "").trim();
+        if (!prompt) continue;
+        const parts = [`${slot.toUpperCase()} bbox: ${krea2OutputBbox(box, width, height, bboxMode).join(", ")}`];
+        if (data.slot && data.slot !== slot) parts.push(`prompt slot: ${data.slot.toUpperCase()}`);
+        parts.push(`prompt: ${prompt}`);
+        const framing = String(data.framing || "").trim();
+        const angle = String(data.angle || "").trim();
+        if (framing && framing !== "Auto") parts.push(`framing: ${framing}`);
+        if (angle && angle !== "Auto") parts.push(`angle: ${angle}`);
+        slotLines.push(parts.join(" / "));
+      }
+      if (slotLines.length) lines.push(`Krea2 BBOX: ${slotLines.join(" | ")}`);
+
+      const pose = extractKrea2PoseInfo(nodes);
+      if (pose) lines.push(`Pose preset: ${pose}`);
+
+      const effect = extractKrea2EffectInfo(nodes, "Krea2BBOXPromptEffect", "Prompt effect");
+      if (effect) lines.push(effect);
+
+      const background = extractKrea2EffectInfo(nodes, "Krea2BackgroundEffect", "Background");
+      if (background) lines.push(background);
+
+      return lines.join("\n");
+    }
+
+    function extractKrea2PoseInfo(nodes) {
+      const node = nodes.find((item) => item?.type === "Krea2BBOXPoseGestureInjectorV1");
+      const values = node?.widgets_values || [];
+      if (!node || values[0] === false) return "";
+      const labels = [
+        "target", "human", "base", "hands", "right hand", "left hand", "torso",
+        "gaze", "head", "lower body", "sitting/lying", "performance", "pair",
+        "strength", "stabilizer", "merge", "sitting", "lying"
+      ];
+      const parts = [];
+      for (let i = 1; i <= labels.length; i++) {
+        const value = String(values[i] || "").trim();
+        if (!value || /^(None\b|なし)/i.test(value)) continue;
+        parts.push(`${labels[i - 1]}=${value}`);
+      }
+      return parts.join(", ");
+    }
+
+    function extractKrea2EffectInfo(nodes, type, label) {
+      const node = nodes.find((item) => item?.type === type);
+      const values = node?.widgets_values || [];
+      if (!node || values[1] === false) return "";
+      const category = String(values[2] || "").trim();
+      const preset = String(values[3] || "").trim();
+      const mode = String(values[4] || "").trim();
+      const custom = String(values[5] || "").trim();
+      const boost = String(values[6] || "").trim();
+      const parts = [];
+      if (category) parts.push(`category=${category}`);
+      if (preset) parts.push(`preset=${preset}`);
+      if (mode) parts.push(`mode=${mode}`);
+      if (boost) parts.push(`style boost=${boost}`);
+      if (custom && (mode === "Custom" || mode === "Custom Preset" || preset === "Custom Preset")) parts.push(`custom=${custom}`);
+      return parts.length ? `${label}: ${parts.join(", ")}` : "";
     }
 
     function extractKrea2Negative(nodes) {

@@ -5,6 +5,7 @@
 - Added Krea2 Element Framing metadata support.
 - Krea2 split color prompts are combined into one positive prompt view.
 - Krea2 negative prompts are shown when negative text metadata is available.
+- Added Krea2 BBOX prompt-slot fallback and BBOX details such as pose preset, prompt effect, and background effect when available.
 
 <img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/f9416ab2-c09c-4e81-a45d-0ebb464fe1fe" />
 
@@ -38,6 +39,7 @@ Download the latest Windows installer from:
 - Run a simple slideshow for folder images
 - Click the preview image to enlarge it
 - View positive prompt, negative prompt, settings, summary, and metadata records
+- Show Krea2 BBOX prompt slots, bounding boxes, pose presets, prompt effects, and background effects when the workflow metadata includes them
 - Show ComfyUI workflow and A1111 metadata status in Summary
 - Collapse and expand metadata sections
 - Copy prompts, settings, or all visible generation data
