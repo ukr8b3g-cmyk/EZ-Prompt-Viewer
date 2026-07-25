@@ -6,6 +6,7 @@
 - Krea2 split color prompts are combined into one positive prompt view.
 - Krea2 negative prompts are shown when negative text metadata is available.
 - Added Krea2 BBOX prompt-slot fallback and BBOX details such as pose preset, prompt effect, and background effect when available.
+- Preserved the complete Positive prompt from decoded Forge Neo / reForge WebP UserComment metadata, including text before `masterpiece`.
 
 <img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/f9416ab2-c09c-4e81-a45d-0ebb464fe1fe" />
 
@@ -16,11 +17,13 @@ EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 pr
 
 Images are processed locally on your machine.
 
+Current version: **v1.0.1**
+
 ## Download
 
 Download the latest Windows installer from:
 
-[EZ Prompt Viewer v1.0.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.0)
+[EZ Prompt Viewer v1.0.1 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.1)
 
 ## Supported Formats
 

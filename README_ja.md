@@ -6,6 +6,7 @@
 - Krea2 の色別に分かれたプロンプトを、1つのPositive promptとして表示
 - Krea2 のNegative promptがメタデータ内にある場合は表示
 - Krea2 BBOX のプロンプトスロット補完と、取得可能な BBOX / ポーズプリセット / プロンプトエフェクト / 背景エフェクト情報の表示に対応
+- Forge Neo / reForge のWebP UserCommentから、`masterpiece`より前を含むPositive prompt全文を保持
 
 <img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/08f87802-4766-4c90-80f1-347f6dd9a0f4" />
 
@@ -14,11 +15,13 @@ EZ Prompt Viewer は、画像ファイルに保存された ComfyUI / A1111 の�
 
 画像はローカル環境で処理されます。
 
+現在のバージョン: **v1.0.1**
+
 ## ダウンロード
 
 Windows インストーラは以下の Release からダウンロードできます。
 
-[EZ Prompt Viewer v1.0.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.0)
+[EZ Prompt Viewer v1.0.1 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.1)
 
 ## 対応形式
 
