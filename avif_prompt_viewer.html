@@ -2703,6 +2703,12 @@
       let settings = "";
       let xmp = "";
       let exif = "";
+      const hasDecodedA1111UserComment = records.some((record) =>
+        isDecodedUserCommentRecord(record) &&
+        /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(
+          trimBinaryText(typeof record.value === "string" ? record.value : JSON.stringify(record.value))
+        )
+      );
 
       for (const record of records) {
         const value = typeof record.value === "string" ? record.value : JSON.stringify(record.value);
@@ -2728,12 +2734,16 @@
           if (!negative || looksLikeBinaryJunk(negative)) negative = comfy.negative || negative;
           if (!settings || hasComfyReferenceValue(settings)) settings = comfy.settings || settings;
         }
-        if (!a1111 && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(clean)) {
+        const skipRawExifA1111 =
+          hasDecodedA1111UserComment && isRawExifFallbackRecord(record);
+        if (!a1111 && !skipRawExifA1111 && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(clean)) {
           const isComfyGraphRecord = parsed && looksLikeComfyGraphObject(parsed);
           const hasNegativePromptMarker = /\bNegative prompt:\s*/i.test(clean);
           if (!isComfyGraphRecord || hasNegativePromptMarker) {
             a1111 = clean;
-            const split = splitA1111(clean);
+            const split = splitA1111(clean, {
+              preservePositiveStart: isTrustedA1111TextRecord(record),
+            });
             const canUseA1111Positive = hasNegativePromptMarker || !isComfyGraphRecord;
             if (canUseA1111Positive && !looksLikeBinaryJunk(split.positive)) positive = positive || split.positive;
             negative = negative || split.negative;
@@ -2748,6 +2758,22 @@
         settings = split.settings;
       }
       return { prompt, workflow, a1111, positive, negative, settings, xmp, exif };
+    }
+
+    function isDecodedUserCommentRecord(record) {
+      return /\bUserComment\b/i.test(String(record?.label || ""));
+    }
+
+    function isTrustedA1111TextRecord(record) {
+      const label = String(record?.label || "");
+      return isDecodedUserCommentRecord(record) ||
+        /^PNG parameters$/i.test(label) ||
+        /^JPEG Comment$/i.test(label);
+    }
+
+    function isRawExifFallbackRecord(record) {
+      const label = String(record?.label || "");
+      return /\bEXIF\b/i.test(label) && !isDecodedUserCommentRecord(record);
     }
 
     function looksLikeComfyGraphObject(value) {
@@ -3260,6 +3286,7 @@
     function cleanRawValue(record) {
       const value = typeof record.value === "string" ? record.value : pretty(record.value);
       const clean = trimBinaryText(value);
+      if (isDecodedUserCommentRecord(record)) return clean;
       if (/EXIF/i.test(record.label)) {
         const starts = [
           clean.search(/\bmasterpiece\b/i),
@@ -3314,8 +3341,10 @@
       return [{ label: "Scan A1111", value: trimBinaryText(text.slice(start, end)) }];
     }
 
-    function splitA1111(text) {
+    function splitA1111(text, { preservePositiveStart = false } = {}) {
       const clean = trimBinaryText(text);
+      const preparePositive = (value) =>
+        preservePositiveStart ? trimBinaryText(value) : cleanPositive(value);
       const negativeMarker = clean.search(/\bNegative prompt:\s*/i);
       const stepsMarker = clean.search(/\bSteps:\s*/i);
       if (negativeMarker !== -1) {
@@ -3323,31 +3352,41 @@
         const markerLength = clean.match(/\bNegative prompt:\s*/i)[0].length;
         const settingsStart = stepsMarker !== -1 && stepsMarker > negativeStart ? stepsMarker : clean.length;
         return {
-          positive: cleanPositive(clean.slice(0, negativeStart)),
+          positive: preparePositive(clean.slice(0, negativeStart)),
           negative: clean.slice(negativeStart + markerLength, settingsStart).trim(),
           settings: settingsStart < clean.length ? cleanSettings(clean.slice(settingsStart)) : "",
         };
       }
       if (stepsMarker !== -1) {
         return {
-          positive: cleanPositive(clean.slice(0, stepsMarker)),
+          positive: preparePositive(clean.slice(0, stepsMarker)),
           negative: "",
           settings: cleanSettings(clean.slice(stepsMarker)),
         };
       }
-      return { positive: cleanPositive(clean), negative: "", settings: "" };
+      return { positive: preparePositive(clean), negative: "", settings: "" };
     }
 
     function findA1111Start(text, markerIndex) {
       const windowStart = Math.max(0, markerIndex - 4000);
       const before = text.slice(windowStart, markerIndex);
-      const promptStart = findPromptStart(before);
-      if (promptStart !== -1) return windowStart + promptStart;
       const separators = ["parameters", "UserComment", "Description"];
+      let separatorIndex = -1;
+      let separatorLength = 0;
       for (const separator of separators) {
         const index = before.lastIndexOf(separator);
-        if (index !== -1) return windowStart + index + separator.length;
+        if (index > separatorIndex) {
+          separatorIndex = index;
+          separatorLength = separator.length;
+        }
       }
+      if (separatorIndex !== -1) {
+        let start = separatorIndex + separatorLength;
+        while (start < before.length && /[\s\x00:=]/.test(before[start])) start++;
+        return windowStart + start;
+      }
+      const promptStart = findPromptStart(before);
+      if (promptStart !== -1) return windowStart + promptStart;
       const doubleBreak = Math.max(before.lastIndexOf("\n\n"), before.lastIndexOf("\r\n\r\n"));
       if (doubleBreak !== -1) return windowStart + doubleBreak + 2;
       return windowStart;
