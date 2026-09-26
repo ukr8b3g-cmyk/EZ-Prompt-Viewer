@@ -1,36 +1,99 @@
 # EZ Prompt Viewer
 
-## Latest Changes
-
-- Added Krea2 Element Framing metadata support.
-- Krea2 split color prompts are combined into one positive prompt view.
-- Krea2 negative prompts are shown when negative text metadata is available.
-- Added Krea2 BBOX prompt-slot fallback and BBOX details such as pose preset, prompt effect, and background effect when available.
-- Preserved the complete Positive prompt from decoded Forge Neo / reForge WebP UserComment metadata, including text before `masterpiece`.
-
-<img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/f9416ab2-c09c-4e81-a45d-0ebb464fe1fe" />
-
-
 [日本語 README](README_ja.md)
 
-EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 prompt metadata from image files.
+EZ Prompt Viewer is a local Windows desktop app for viewing prompt and generation metadata stored in image files. Images are processed locally on your machine.
 
-Images are processed locally on your machine.
+Current version: **v1.1.0**
 
-Current version: **v1.0.1**
+## v1.1.0 Highlights
+
+- Added first-class **Krea2** metadata support.
+- Added **Qwen Image 2.1** metadata support.
+- Added an output-slot-aware ComfyUI graph resolver, so dual-output nodes such as `TextEncodeQwenImage21` correctly separate Positive and Negative prompts.
+- Added active-path resolution for model, text encoder, VAE, sampler, scheduler, denoise, image size, seed, steps, CFG, and active LoRA information.
+- Added support for Qwen Image 2.1 prompt paths that pass through `ComfySwitchNode` and upstream string nodes.
+- Preserved structured JSON prompts when using `Format Prompt`.
+- Improved Krea2 Element Framing / BBOX metadata handling.
+- Improved file loading stability, folder drag-and-drop handling, preview object URL cleanup, and external URL safety.
+- Updated the Windows build stack to **Electron 44.4.5** and **electron-builder 26.16.1**.
+
+<img width="1268" height="881" alt="EZ Prompt Viewer" src="https://github.com/user-attachments/assets/f9416ab2-c09c-4e81-a45d-0ebb464fe1fe" />
 
 ## Download
 
-Download the latest Windows installer from:
+Windows builds are provided from the repository Releases page:
 
-[EZ Prompt Viewer v1.0.1 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.1)
+https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases
 
-## Supported Formats
+## Supported Image Formats
 
 - AVIF
 - PNG
 - JPEG / JPG
 - WebP
+
+## Confirmed Metadata / Workflow Support
+
+EZ Prompt Viewer reads ComfyUI prompt/workflow metadata and A1111-style parameters when they are embedded in the image.
+
+Confirmed examples include:
+
+- Krea2
+- Qwen Image 2.1
+- Qwen-Image / Qwen-Image-Edit
+- SDXL
+- Illustrious-XL
+- Anima
+- ZIT / Z-Image
+- Ernie-Image / Turbo
+- Microsoft Lens
+- Flux.Klein
+- Forge Neo / reForge WebP UserComment metadata
+
+Support depends on the metadata actually stored by the save node or application.
+
+## Krea2
+
+Krea2 support includes:
+
+- Positive prompt extraction
+- Empty / zeroed Negative conditioning handling
+- Active model path detection
+- Text encoder and VAE detection
+- Active LoRA extraction
+- Sampler / scheduler / denoise / seed / steps / CFG / size
+- Krea2 Element Framing structured prompt display
+- BBOX prompt slots
+- Pose preset, prompt effect, and background effect information when available
+
+## Qwen Image 2.1
+
+Qwen Image 2.1 support includes:
+
+- `TextEncodeQwenImage21`
+- Correct Positive / Negative separation by output slot
+- `ComfySwitchNode` prompt routing
+- Upstream string / structured JSON prompt resolution
+- Model, Qwen text encoder, and VAE detection
+- Seed / steps / CFG / sampler / scheduler / denoise / size
+- Structured JSON prompt preservation
+
+For Qwen Image 2.1, the ComfyUI API prompt graph is treated as the authoritative source when available. This avoids incorrect Positive/Negative classification from fallback metadata.
+
+## ComfyUI Save Nodes
+
+### Core Save Image / Save Image Advanced
+
+ComfyUI Core `Save Image` and `Save Image Advanced` are supported when the output file contains the standard `prompt` / `workflow` metadata.
+
+For PNG, this is normally stored as PNG text metadata unless metadata saving has been disabled.
+
+### ComfyUI-save-webp-meta-node
+
+For WebP / EXIF-oriented workflows, [ComfyUI-save-webp-meta-node](https://github.com/ukr8b3g-cmyk/ComfyUI-save-webp-meta-node) can be used to preserve ComfyUI graph/workflow metadata and A1111-style parameters.
+
+It is optional; it is not required for normal ComfyUI PNG metadata.
 
 ## Main Features
 
@@ -41,9 +104,7 @@ Download the latest Windows installer from:
 - Navigate folder images with previous / next buttons
 - Run a simple slideshow for folder images
 - Click the preview image to enlarge it
-- View positive prompt, negative prompt, settings, summary, and metadata records
-- Show Krea2 BBOX prompt slots, bounding boxes, pose presets, prompt effects, and background effects when the workflow metadata includes them
-- Show ComfyUI workflow and A1111 metadata status in Summary
+- View Positive prompt, Negative prompt, Settings, Summary, and raw metadata records
 - Collapse and expand metadata sections
 - Copy prompts, settings, or all visible generation data
 - Edit displayed text and save it as a `.txt` file
@@ -58,7 +119,7 @@ The drop area supports:
 - Multiple image drop
 - Folder drop
 
-Note: dropping one image cannot automatically read every file in its parent folder because of browser/Electron security restrictions. Drop the folder itself, or use `Choose folder`.
+Dropping one image cannot automatically enumerate every file in its parent folder because of browser/Electron security restrictions. Drop the folder itself, or use `Choose folder`.
 
 ## Language Options
 
@@ -76,6 +137,7 @@ Note: dropping one image cannot automatically read every file in its parent fold
 
 ## Theme Options
 
+- Blue
 - Dark
 - Gray
 - Light
@@ -88,7 +150,6 @@ Note: dropping one image cannot automatically read every file in its parent fold
 - Radioactive
 - Candy
 - Yellow
-- Blue
 - Christmas
 
 Default theme: `Blue`.
@@ -100,38 +161,14 @@ Default theme: `Blue`.
 It can:
 
 - Remove extra spaces and commas
-- Collapse repeated spaces into one space
+- Collapse repeated spaces
 - Fix misplaced brackets and commas
 - Remove duplicate tags within the same line
-- Replace underscores (`_`) with spaces
+- Replace underscores with spaces
 - Preserve line breaks
-- Add commas at line breaks when needed
 - Avoid adding a comma at the end of the prompt
 - Leave Japanese, Chinese, and other double-byte text unchanged
-
-Examples:
-
-- `1girl,   solo, smile, 1girl` -> `1girl, solo, smile`
-- `masterpiece\nbest quality\n1girl` -> `masterpiece,\nbest quality,\n1girl`
-- `a girl smiling, a girl standing` -> unchanged
-
-## Recommended ComfyUI Node
-
-For ComfyUI workflows, using [ComfyUI-save-webp-meta-node](https://github.com/ukr8b3g-cmyk/ComfyUI-save-webp-meta-node) together with EZ Prompt Viewer is recommended.
-
-This note applies specifically to WebP files saved with that node. Confirmed sample files include workflows such as:
-
-- SDXL
-- Illustrious-XL
-- Anima
-- Qwen-Image 2512
-- Qwen-Image-Edit 2511
-- ZIT / Z-Image 
-- Ernie-Image / Turbo
-- Microsoft Lens
-- Flux.Klein
-
-Supported metadata may include positive prompts, negative prompts, generation settings, ComfyUI workflow data, model names, seeds, steps, sampler information, image size, and related prompt graph information.
+- Preserve structured JSON prompts without rewriting their structure
 
 ## Build
 
@@ -155,10 +192,11 @@ npm run build
 
 ## Notes
 
-- The app is intended for local Windows desktop use.
+- Intended for local Windows desktop use.
 - Civitai lookup requires network access.
 - Metadata availability depends on how the image was saved.
-- Canvas-based image re-export is not used, so this app does not rewrite image files.
+- The app does not rewrite the source image.
+- The current Windows installer is unsigned unless a code-signing certificate is configured.
 
 ## Specification
 
