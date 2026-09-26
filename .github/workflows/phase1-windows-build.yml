@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Windows NSIS installer
         shell: pwsh
-        run: npm run build
+        run: npm run build -- --publish never
 
       - name: Verify installer output
         id: verify
