@@ -1,0 +1,92 @@
+name: Phase 1 Windows Build Gate
+
+on:
+  push:
+    branches:
+      - maintenance/phase1-build
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Regenerate package lock
+        shell: pwsh
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Install exact dependencies
+        shell: pwsh
+        run: npm ci --no-audit --no-fund
+
+      - name: Report dependency versions
+        shell: pwsh
+        run: |
+          node --version
+          npm --version
+          npm ls electron electron-builder --depth=0
+
+      - name: JavaScript syntax gate
+        shell: pwsh
+        run: |
+          node --check main.js
+          node -e "const fs=require('fs'); const html=fs.readFileSync('avif_prompt_viewer.html','utf8'); const m=html.match(/<script>([\s\S]*?)<\/script>/); if(!m) throw new Error('script block missing'); new Function(m[1]); console.log('HTML script syntax OK');"
+
+      - name: Build Windows NSIS installer
+        shell: pwsh
+        run: npm run build
+
+      - name: Verify installer output
+        id: verify
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -Path dist -Recurse -File -Filter "*.exe" |
+            Where-Object { $_.Name -like "EZ Prompt Viewer Setup*" } |
+            Sort-Object Length -Descending |
+            Select-Object -First 1
+          if (-not $installer) {
+            Get-ChildItem -Path dist -Recurse -File | Format-Table FullName,Length
+            throw "NSIS installer was not produced."
+          }
+          if ($installer.Length -le 0) {
+            throw "Installer exists but is empty."
+          }
+          Write-Host "Verified installer: $($installer.FullName)"
+          Write-Host "Installer bytes: $($installer.Length)"
+          "installer_path=$($installer.FullName)" >> $env:GITHUB_OUTPUT
+          "installer_name=$($installer.Name)" >> $env:GITHUB_OUTPUT
+          "installer_bytes=$($installer.Length)" >> $env:GITHUB_OUTPUT
+
+      - name: Persist regenerated lockfile
+        shell: pwsh
+        run: |
+          if (git status --porcelain -- package-lock.json) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "Update lockfile for Phase 1 maintenance"
+            git push origin HEAD:maintenance/phase1-build
+          } else {
+            Write-Host "package-lock.json already current."
+          }
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-windows-installer
+          path: ${{ steps.verify.outputs.installer_path }}
+          if-no-files-found: error
+          retention-days: 7
