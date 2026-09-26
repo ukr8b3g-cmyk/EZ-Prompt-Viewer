@@ -1,54 +1,119 @@
 # EZ Prompt Viewer
 
-## 最新の変更点
-
-- Krea2 Element Framing のメタデータ読み取りに対応
-- Krea2 の色別に分かれたプロンプトを、1つのPositive promptとして表示
-- Krea2 のNegative promptがメタデータ内にある場合は表示
-- Krea2 BBOX のプロンプトスロット補完と、取得可能な BBOX / ポーズプリセット / プロンプトエフェクト / 背景エフェクト情報の表示に対応
-- Forge Neo / reForge のWebP UserCommentから、`masterpiece`より前を含むPositive prompt全文を保持
-
-<img width="1268" height="881" alt="image" src="https://github.com/user-attachments/assets/08f87802-4766-4c90-80f1-347f6dd9a0f4" />
-
-
-EZ Prompt Viewer は、画像ファイルに保存された ComfyUI / A1111 のプロンプトメタデータを確認するための Windows デスクトップアプリです。
+EZ Prompt Viewer は、画像ファイルに保存された ComfyUI / A1111 のプロンプト・生成メタデータを確認するための Windows デスクトップアプリです。
 
 画像はローカル環境で処理されます。
 
-現在のバージョン: **v1.0.1**
+現在のバージョン: **v1.1.0**
+
+## v1.1.0 主な変更
+
+- **Krea2** の正式メタデータ対応を追加
+- **Qwen Image 2.1** の正式メタデータ対応を追加
+- ComfyUI参照を「Node ID」だけでなく **Node ID + Output Slot** で追跡する resolver を追加
+- `TextEncodeQwenImage21` の Positive / Negative を output slot 0 / 1 で正しく分離
+- `ComfySwitchNode` を通るQwen Image 2.1プロンプト経路に対応
+- 実際に使用されている Model / Text Encoder / VAE / LoRA / Sampler / Scheduler / Denoise / Size / Seed / Steps / CFG を抽出
+- Structured JSON Promptを `Format Prompt` で壊さない保護を追加
+- Krea2 Element Framing / BBOX メタデータ解析を改善
+- フォルダD&D、画像切替、Object URL解放、外部URL処理などの保守修正
+- Windowsビルド環境を **Electron 44.4.5 / electron-builder 26.16.1** に更新
+
+<img width="1268" height="881" alt="EZ Prompt Viewer" src="https://github.com/user-attachments/assets/08f87802-4766-4c90-80f1-347f6dd9a0f4" />
 
 ## ダウンロード
 
-Windows インストーラは以下の Release からダウンロードできます。
+Windows版はリポジトリの Releases ページから取得できます。
 
-[EZ Prompt Viewer v1.0.1 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.0.1)
+https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases
 
-## 対応形式
+## 対応画像形式
 
 - AVIF
 - PNG
 - JPEG / JPG
 - WebP
 
+## 確認済みメタデータ / ワークフロー
+
+画像内に保存されている ComfyUI の prompt / workflow、A1111形式Parametersを読み取ります。
+
+確認済み例:
+
+- Krea2
+- Qwen Image 2.1
+- Qwen-Image / Qwen-Image-Edit
+- SDXL
+- Illustrious-XL
+- Anima
+- ZIT / Z-Image
+- Ernie-Image / Turbo
+- Microsoft Lens
+- Flux.Klein
+- Forge Neo / reForge WebP UserComment
+
+実際に表示できる情報は、保存ノードやアプリが画像へ埋め込んだメタデータに依存します。
+
+## Krea2対応
+
+Krea2では以下を取得できます。
+
+- Positive Prompt
+- Negativeなし / ZeroOut conditioningの判定
+- 実使用Modelの追跡
+- Text Encoder / VAE
+- 有効なLoRA
+- Sampler / Scheduler / Denoise
+- Seed / Steps / CFG / Size
+- Krea2 Element FramingのStructured Prompt
+- BBOX prompt slot
+- 取得可能なPose preset / Prompt effect / Background effect
+
+## Qwen Image 2.1対応
+
+Qwen Image 2.1では以下に対応しています。
+
+- `TextEncodeQwenImage21`
+- output slotによるPositive / Negativeの正確な分離
+- `ComfySwitchNode`を通るPrompt routing
+- 上流String Node / Structured JSON Promptの解決
+- Model / Qwen Text Encoder / VAE
+- Seed / Steps / CFG / Sampler / Scheduler / Denoise / Size
+- Structured JSON Promptの保持
+
+ComfyUI API prompt graphが存在する場合、Qwen Image 2.1ではこれをPositive / Negative判定の優先情報として扱います。
+
+## ComfyUI保存ノード
+
+### Core Save Image / Save Image Advanced
+
+ComfyUI Coreの `Save Image` / `Save Image Advanced` が標準の `prompt` / `workflow` メタデータを画像へ保存している場合、そのまま読み取りできます。
+
+PNGでは通常PNGテキストメタデータとして保存されます。ComfyUI側でmetadata保存を無効化している場合は取得できません。
+
+### ComfyUI-save-webp-meta-node
+
+WebP / EXIF形式でメタデータを保持したい場合は、[ComfyUI-save-webp-meta-node](https://github.com/ukr8b3g-cmyk/ComfyUI-save-webp-meta-node) を利用できます。
+
+通常のComfyUI PNGを読むための必須ノードではありません。
+
 ## 主な機能
 
-- ComfyUI / A1111 のメタデータ表示
+- ComfyUI / A1111 メタデータ表示
 - 単体画像、複数画像、フォルダのドラッグ＆ドロップ
-- フォルダ内画像のサムネイル一覧表示
+- フォルダ内画像のサムネイル一覧
 - サムネイルサイズ変更
 - `Ctrl + マウスホイール` でサムネイル拡大縮小
-- 前後ボタンでフォルダ内画像を切り替え
-- スライドショー再生
+- 前後ボタンで画像切替
+- スライドショー
 - 画像クリックで拡大表示
-- Positive prompt / Negative prompt / Settings / Summary を表示
-- Krea2 BBOX のプロンプトスロット、BBOX、ポーズプリセット、プロンプトエフェクト、背景エフェクトをメタデータ内にある場合のみ表示
-- Summary に ComfyUI workflow / A1111 metadata の有無を表示
+- Positive Prompt / Negative Prompt / Settings / Summary / Raw Metadata表示
 - 各セクションの折りたたみ
-- プロンプト、メタデータ、生成情報のコピー
-- 表示テキストの編集と `.txt` 保存
-- Model / LoRA ハッシュから Civitai リソース候補を表示
+- プロンプト・設定・生成情報のコピー
+- 表示テキスト編集と `.txt` 保存
+- Model / LoRA hashからCivitaiリソース候補を表示
 - 多言語UI
-- カラーテーマ切り替え
+- カラーテーマ切替
 
 ## フォルダ読み込み
 
@@ -58,7 +123,7 @@ Windows インストーラは以下の Release からダウンロードできま
 - 複数画像
 - フォルダ
 
-注意: 単体画像を1枚だけドロップして、その親フォルダ内の全画像を自動取得することはブラウザ/Electronの制限でできません。フォルダごとドロップするか、`Choose folder` を使ってください。
+単体画像を1枚ドロップしただけでは、ブラウザ/Electronのセキュリティ制限により親フォルダの全ファイルを自動列挙できません。フォルダ自体をドロップするか、`Choose folder` を使用してください。
 
 ## 言語
 
@@ -72,7 +137,7 @@ Windows インストーラは以下の Release からダウンロードできま
 - French
 - German
 
-`Auto` は OS / ブラウザの言語をもとに自動選択します。対応外の場合は English に戻ります。
+`Auto` はOS / ブラウザの言語を使用し、対応外の場合はEnglishへフォールバックします。
 
 ## テーマ
 
@@ -91,50 +156,49 @@ Windows インストーラは以下の Release からダウンロードできま
 - Yellow
 - Christmas
 
-標準テーマは `Blue` です。
+標準テーマ: `Blue`
 
 ## Format Prompt
 
-`Format Prompt` は、タグ形式のプロンプトを整形する機能です。
+`Format Prompt` は主にSDXL anime / anime-style checkpoint / booru系のカンマ区切りタグを整形します。
 
-主に SDXL anime、anime-style checkpoint、booru-style prompting のような、カンマ区切りタグのワークフロー向けです。
-
-実行内容:
-
-- 余分なスペースやカンマを整理
-- 連続スペースを1つにする
-- 括弧やカンマの位置を補正
-- 同じ行の重複タグを削除
-- アンダースコア `_` をスペースに置換
+- 余分なスペース・カンマを整理
+- 連続スペースを整理
+- 括弧・カンマ位置を補正
+- 同一行の重複タグを削除
+- アンダースコアをスペースへ変換
 - 改行を維持
-- 必要な行末にカンマを追加
-- プロンプト末尾にはカンマを付けない
-- 日本語・中国語などの2バイト文字は変更しない
+- プロンプト末尾へ不要なカンマを追加しない
+- 日本語・中国語などの2バイト文字を変更しない
+- Structured JSON Promptは構造を変更せず保持
 
-## 推奨 ComfyUI ノード
+## ビルド
 
-ComfyUI ワークフローでは、[ComfyUI-save-webp-meta-node](https://github.com/ukr8b3g-cmyk/ComfyUI-save-webp-meta-node) との併用を推奨します。
+依存関係をインストール:
 
-この説明は、そのノードで保存された WebP ファイルに限定した互換性メモです。
+```powershell
+npm install
+```
 
-確認済みサンプル:
+起動:
 
-- SDXL
-- Illustrious-XL
-- Anima
-- Qwen-Image
-- Qwen-Image-Edit
-- Z-image
-- Ernie-Image
-- Microsoft Lens
-- Flux.Klein 
+```powershell
+npm start
+```
+
+Windowsインストーラ作成:
+
+```powershell
+npm run build
+```
 
 ## 注意
 
-- Windows ローカルデスクトップアプリとしての利用を想定しています。
-- Civitai 照合にはネットワーク接続が必要です。
-- 読めるメタデータは画像の保存方法に依存します。
-- 画像ファイル自体を書き換える機能はありません。
+- Windowsローカルデスクトップアプリとしての利用を想定しています。
+- Civitai照合にはネットワーク接続が必要です。
+- 読み取れる情報は画像に保存されたメタデータに依存します。
+- 元画像を書き換える機能はありません。
+- コード署名証明書を設定していないビルドは未署名です。
 
 ## 仕様
 
