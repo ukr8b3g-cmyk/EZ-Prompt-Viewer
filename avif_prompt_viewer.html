@@ -1397,7 +1397,7 @@
       <div class="about-body">
         <img class="about-character" src="assets/about-character.gif" alt="">
         <h2 id="aboutName" class="about-name">EZ Prompt Viewer</h2>
-        <p class="about-meta" data-i18n="aboutVersion">Prototype build</p>
+        <p id="aboutVersion" class="about-meta">v1.0.1</p>
         <p class="about-copy" data-i18n="aboutCopy">Local Windows desktop app for ComfyUI and A1111 metadata.</p>
       </div>
       <div class="about-footer">
@@ -1414,6 +1414,8 @@
     const utf16beDecoder = new TextDecoder("utf-16be", { fatal: false });
     const defaultTheme = "blue";
     const defaultThemeVersion = "20260619-blue-default";
+    const appVersion = "1.0.1";
+    const supportedImageMimeTypes = new Set(["image/avif", "image/png", "image/jpeg", "image/jpg", "image/webp"]);
     let currentLang = "en";
     let formatApplied = false;
     let lastParsed = null;
@@ -1424,6 +1426,8 @@
     let folderIndex = -1;
     let folderThumbSize = Number(localStorage.getItem("avifPromptViewerThumbnailSize") || 74);
     let slideshowTimer = 0;
+    let previewObjectUrl = "";
+    let loadGeneration = 0;
 
     const i18n = {
       ja: {
@@ -1456,7 +1460,6 @@
         removeDuplicates: "重複を削除",
         removeUnderscores: "アンダースコアを空白化",
         aboutTitle: "EZ Prompt Viewer について",
-        aboutVersion: "Prototype build",
         aboutCopy: "ComfyUI と A1111 メタデータ用の Windows ローカルデスクトップアプリです。",
         prompt: "プロンプト",
         negative: "ネガティブプロンプト",
@@ -1509,7 +1512,6 @@
         removeDuplicates: "Remove duplicates",
         removeUnderscores: "Remove underscores",
         aboutTitle: "About EZ Prompt Viewer",
-        aboutVersion: "Prototype build",
         aboutCopy: "Local Windows desktop app for ComfyUI and A1111 metadata.",
         prompt: "Prompt",
         negative: "Negative prompt",
@@ -1562,7 +1564,6 @@
         removeDuplicates: "移除重复项",
         removeUnderscores: "移除下划线",
         aboutTitle: "关于 EZ Prompt Viewer",
-        aboutVersion: "原型版本",
         aboutCopy: "用于 ComfyUI 和 A1111 元数据的本地 Windows 桌面应用。",
         prompt: "提示词",
         negative: "反向提示词",
@@ -1615,7 +1616,6 @@
         removeDuplicates: "移除重複項",
         removeUnderscores: "移除底線",
         aboutTitle: "關於 EZ Prompt Viewer",
-        aboutVersion: "原型版本",
         aboutCopy: "用於 ComfyUI 和 A1111 中繼資料的本機 Windows 桌面應用程式。",
         prompt: "提示詞",
         negative: "反向提示詞",
@@ -1668,7 +1668,6 @@
         removeDuplicates: "중복 제거",
         removeUnderscores: "밑줄 제거",
         aboutTitle: "EZ Prompt Viewer 정보",
-        aboutVersion: "프로토타입 빌드",
         aboutCopy: "ComfyUI 및 A1111 메타데이터용 로컬 Windows 데스크톱 앱입니다.",
         prompt: "프롬프트",
         negative: "네거티브 프롬프트",
@@ -1721,7 +1720,6 @@
         removeDuplicates: "Quitar duplicados",
         removeUnderscores: "Quitar guiones bajos",
         aboutTitle: "Acerca de EZ Prompt Viewer",
-        aboutVersion: "Versión prototipo",
         aboutCopy: "App local de Windows para metadatos de ComfyUI y A1111.",
         prompt: "Prompt",
         negative: "Prompt negativo",
@@ -1774,7 +1772,6 @@
         removeDuplicates: "Supprimer les doublons",
         removeUnderscores: "Supprimer les underscores",
         aboutTitle: "À propos de EZ Prompt Viewer",
-        aboutVersion: "Version prototype",
         aboutCopy: "Application Windows locale pour les métadonnées ComfyUI et A1111.",
         prompt: "Prompt",
         negative: "Prompt négatif",
@@ -1827,7 +1824,6 @@
         removeDuplicates: "Duplikate entfernen",
         removeUnderscores: "Unterstriche entfernen",
         aboutTitle: "Über EZ Prompt Viewer",
-        aboutVersion: "Prototyp-Build",
         aboutCopy: "Lokale Windows-App für ComfyUI- und A1111-Metadaten.",
         prompt: "Prompt",
         negative: "Negativer Prompt",
@@ -1864,6 +1860,7 @@
       languageSelect: $("languageSelect"),
       themeSelect: $("themeSelect"),
       aboutOpen: $("aboutOpen"),
+      aboutVersion: $("aboutVersion"),
       clearAll: $("clearAll"),
       aboutOverlay: $("aboutOverlay"),
       aboutClose: $("aboutClose"),
@@ -2028,7 +2025,10 @@
     els.civitaiLookup.addEventListener("click", () => lookupCivitaiResources());
 
     function clearAll() {
-      if (els.preview.src) URL.revokeObjectURL(els.preview.src);
+      if (previewObjectUrl) {
+        URL.revokeObjectURL(previewObjectUrl);
+        previewObjectUrl = "";
+      }
       els.input.value = "";
       clearFolderList();
       els.preview.removeAttribute("src");
@@ -2051,6 +2051,7 @@
     }
 
     function clearFolderList() {
+      loadGeneration += 1;
       stopSlideshow();
       folderThumbUrls.forEach((url) => URL.revokeObjectURL(url));
       folderThumbUrls = [];
@@ -2065,7 +2066,10 @@
 
     function isSupportedImageFile(file) {
       const name = (file.name || "").toLowerCase();
-      return (file.type || "").startsWith("image/") || /\.(avif|png|jpe?g|webp)$/.test(name);
+      const type = (file.type || "").toLowerCase();
+      if (supportedImageMimeTypes.has(type)) return true;
+      if (type.startsWith("image/")) return false;
+      return /\.(avif|png|jpe?g|webp)$/.test(name);
     }
 
     async function handleDroppedFiles(files) {
@@ -2079,9 +2083,6 @@
     }
 
     async function getDroppedImageFiles(dataTransfer) {
-      const directFiles = Array.from(dataTransfer.files || []).filter(isSupportedImageFile);
-      if (directFiles.length) return directFiles;
-
       const items = Array.from(dataTransfer.items || []);
       const entries = items
         .map((item) => item.webkitGetAsEntry?.())
@@ -2130,7 +2131,6 @@
     }
 
     function loadFolderFiles(files) {
-      stopSlideshow();
       clearFolderList();
       const images = files
         .filter(isSupportedImageFile)
@@ -2244,23 +2244,31 @@
     }
 
     async function loadSingleFile(file) {
-      stopSlideshow();
-      folderFiles = [];
-      folderIndex = -1;
-      updateFolderNav();
+      clearFolderList();
       await loadFile(file);
     }
 
     async function loadFile(file) {
+      const generation = ++loadGeneration;
       formatApplied = false;
       const buffer = await file.arrayBuffer();
+      if (generation !== loadGeneration) return;
+
       const bytes = new Uint8Array(buffer);
       const url = URL.createObjectURL(file);
+      if (generation !== loadGeneration) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = url;
       els.preview.src = url;
       document.body.classList.add("has-file");
       els.fileInfo.textContent = `${file.name} / ${formatBytes(file.size)} / ${file.type || detectType(bytes)}`;
 
       const parsed = parseMetadata(bytes, file);
+      if (generation !== loadGeneration) return;
       lastParsed = parsed;
       lastFile = file;
       lastBytes = bytes;
@@ -2381,6 +2389,8 @@
 
     function formatPromptText(text) {
       if (!text || /^\(.*not found.*\)$/i.test(text.trim())) return text;
+      const structured = tryJson(text.trim());
+      if (structured && typeof structured === "object") return JSON.stringify(structured, null, 2);
       const lines = text.split(/\r?\n/);
       const nonEmptyLines = lines.filter((line) => line.trim());
       const totalNonEmpty = nonEmptyLines.length;
@@ -2703,6 +2713,9 @@
       let settings = "";
       let xmp = "";
       let exif = "";
+      let comfyPositiveResolved = false;
+      let comfyNegativeResolved = false;
+      let krea2StructuredPositive = false;
       const hasDecodedA1111UserComment = records.some((record) =>
         isDecodedUserCommentRecord(record) &&
         /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(
@@ -2724,14 +2737,27 @@
         if (parsed && parsed.workflow && !workflow) workflow = pretty(parsed.workflow);
         if (parsed && looksLikeKrea2WorkflowObject(parsed)) {
           const krea2 = extractKrea2PromptData(parsed);
-          if (krea2.positive) positive = krea2.positive;
+          if (krea2.positive) {
+            positive = krea2.positive;
+            krea2StructuredPositive = true;
+          }
           if (krea2.negative) negative = negative || krea2.negative;
           if (krea2.settings) settings = settings || krea2.settings;
         }
         if (parsed && looksLikeComfyGraphObject(parsed)) {
           const comfy = extractComfyPromptData(parsed);
-          if (!positive || looksLikeBinaryJunk(positive)) positive = comfy.positive || positive;
-          if (!negative || looksLikeBinaryJunk(negative)) negative = comfy.negative || negative;
+          if (comfy.positiveResolved) {
+            if (!krea2StructuredPositive) positive = comfy.positive;
+            comfyPositiveResolved = true;
+          } else if (!positive || looksLikeBinaryJunk(positive)) {
+            positive = comfy.positive || positive;
+          }
+          if (comfy.negativeResolved) {
+            negative = comfy.negative;
+            comfyNegativeResolved = true;
+          } else if (!negative || looksLikeBinaryJunk(negative)) {
+            negative = comfy.negative || negative;
+          }
           if (!settings || hasComfyReferenceValue(settings)) settings = comfy.settings || settings;
         }
         const skipRawExifA1111 =
@@ -2745,17 +2771,19 @@
               preservePositiveStart: isTrustedA1111TextRecord(record),
             });
             const canUseA1111Positive = hasNegativePromptMarker || !isComfyGraphRecord;
-            if (canUseA1111Positive && !looksLikeBinaryJunk(split.positive)) positive = positive || split.positive;
-            negative = negative || split.negative;
+            if (!comfyPositiveResolved && canUseA1111Positive && !looksLikeBinaryJunk(split.positive)) {
+              positive = positive || split.positive;
+            }
+            if (!comfyNegativeResolved) negative = negative || split.negative;
             settings = settings || split.settings;
           }
         }
       }
-      if (!positive && prompt && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:)/i.test(prompt)) {
+      if (!comfyPositiveResolved && !positive && prompt && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:)/i.test(prompt)) {
         const split = splitA1111(prompt);
         positive = looksLikeBinaryJunk(split.positive) ? positive : split.positive;
-        negative = split.negative;
-        settings = split.settings;
+        if (!comfyNegativeResolved) negative = split.negative;
+        settings = settings || split.settings;
       }
       return { prompt, workflow, a1111, positive, negative, settings, xmp, exif };
     }
@@ -3003,54 +3031,410 @@
     }
 
     function extractComfyPromptData(graph) {
-      const positiveRefs = new Set();
-      const negativeRefs = new Set();
-      const textNodes = [];
-      const settings = {};
+      const fallbackSettings = {};
+      const samplerEntries = [];
 
-      for (const [id, node] of Object.entries(graph)) {
+      for (const [id, node] of Object.entries(graph || {})) {
         if (!node || typeof node !== "object") continue;
         const inputs = node.inputs || {};
         const classType = String(node.class_type || "");
-        const title = String(node._meta?.title || "");
-        const label = `${classType} ${title}`.toLowerCase();
 
-        addNodeRef(positiveRefs, inputs.positive);
-        addNodeRef(negativeRefs, inputs.negative);
-
-        const promptText = typeof inputs.prompt === "string" ? inputs.prompt : "";
-        const text = typeof inputs.text === "string" ? inputs.text : promptText;
-        if (text.trim()) {
-          textNodes.push({ id, text: normalizePromptText(text.trim()), label });
+        if (classType === "KSampler" || classType === "KSamplerAdvanced") {
+          samplerEntries.push([id, node]);
         }
 
-        if (isScalarValue(inputs.steps) && settings.Steps == null) settings.Steps = inputs.steps;
-        if (isScalarValue(inputs.cfg) && settings["CFG scale"] == null) settings["CFG scale"] = inputs.cfg;
-        if (isScalarValue(inputs.seed) && settings.Seed == null) settings.Seed = inputs.seed;
-        if (isScalarValue(inputs.noise_seed) && settings.Seed == null) settings.Seed = inputs.noise_seed;
-        if (isScalarValue(inputs.sampler_name) && settings.Sampler == null) settings.Sampler = inputs.sampler_name;
-        if (isScalarValue(inputs.width) && isScalarValue(inputs.height) && settings.Size == null) settings.Size = `${inputs.width}x${inputs.height}`;
-        if (isScalarValue(inputs.model_name) && settings.Model == null) settings.Model = inputs.model_name;
-        if (isScalarValue(inputs.unet_name) && settings.Model == null) settings.Model = inputs.unet_name;
+        if (isScalarValue(inputs.steps) && fallbackSettings.Steps == null) fallbackSettings.Steps = inputs.steps;
+        if (isScalarValue(inputs.cfg) && fallbackSettings["CFG scale"] == null) fallbackSettings["CFG scale"] = inputs.cfg;
+        if (isScalarValue(inputs.seed) && fallbackSettings.Seed == null) fallbackSettings.Seed = inputs.seed;
+        if (isScalarValue(inputs.noise_seed) && fallbackSettings.Seed == null) fallbackSettings.Seed = inputs.noise_seed;
+        if (isScalarValue(inputs.sampler_name) && fallbackSettings.Sampler == null) fallbackSettings.Sampler = inputs.sampler_name;
+        if (isScalarValue(inputs.scheduler) && fallbackSettings.Scheduler == null) fallbackSettings.Scheduler = inputs.scheduler;
+        if (isScalarValue(inputs.denoise) && fallbackSettings.Denoise == null) fallbackSettings.Denoise = inputs.denoise;
+        if (isScalarValue(inputs.width) && isScalarValue(inputs.height) && fallbackSettings.Size == null) {
+          fallbackSettings.Size = `${inputs.width}x${inputs.height}`;
+        }
+        if (isScalarValue(inputs.model_name) && fallbackSettings.Model == null) fallbackSettings.Model = inputs.model_name;
+        if (isScalarValue(inputs.unet_name) && fallbackSettings.Model == null) fallbackSettings.Model = inputs.unet_name;
       }
 
       const positives = [];
       const negatives = [];
-      for (const item of textNodes) {
-        if (negativeRefs.has(item.id) || /negative/.test(item.label)) negatives.push(item.text);
-        else if (positiveRefs.has(item.id) || /positive|encode|prompt/.test(item.label)) positives.push(item.text);
-        else positives.push(item.text);
+      let positiveResolved = false;
+      let negativeResolved = false;
+
+      for (const [, sampler] of samplerEntries) {
+        const inputs = sampler.inputs || {};
+        const positive = resolveComfyPromptReference(graph, inputs.positive, "positive");
+        const negative = resolveComfyPromptReference(graph, inputs.negative, "negative");
+
+        if (positive.resolved) {
+          positiveResolved = true;
+          addUniqueComfyText(positives, positive.text);
+        }
+        if (negative.resolved) {
+          negativeResolved = true;
+          addUniqueComfyText(negatives, negative.text);
+        }
       }
+
+      if (!positiveResolved || !negativeResolved) {
+        for (const node of Object.values(graph || {})) {
+          if (!node || typeof node !== "object") continue;
+          const inputs = node.inputs || {};
+          const classType = String(node.class_type || "");
+          const title = String(node._meta?.title || "");
+          const label = `${classType} ${title}`.toLowerCase();
+
+          if (!positiveResolved) {
+            const direct = Object.prototype.hasOwnProperty.call(inputs, "prompt")
+              ? inputs.prompt
+              : inputs.text;
+            if (typeof direct === "string" && direct.trim() && !/negative/.test(label)) {
+              addUniqueComfyText(positives, normalizePromptText(direct.trim()));
+            }
+          }
+
+          if (!negativeResolved) {
+            const directNegative = inputs.negative_prompt;
+            if (typeof directNegative === "string") {
+              negativeResolved = true;
+              addUniqueComfyText(negatives, normalizePromptText(directNegative.trim()));
+            } else if (/negative/.test(label) && typeof inputs.text === "string") {
+              negativeResolved = true;
+              addUniqueComfyText(negatives, normalizePromptText(inputs.text.trim()));
+            }
+          }
+        }
+      }
+
+      const [samplerId, sampler] = samplerEntries[0] || [];
+      const samplerInputs = sampler?.inputs || {};
+      const encoder = sampler ? findComfyUpstreamNode(
+        graph,
+        samplerInputs.positive,
+        (node) => ["TextEncodeQwenImage21", "CLIPTextEncode"].includes(String(node.class_type || ""))
+      ) : null;
+      const model = sampler ? comfyModelNameFromSampler(graph, sampler) : (fallbackSettings.Model || "");
+      const textEncoder = comfyTextEncoderName(graph, encoder);
+      const vae = sampler ? comfyVaeName(graph, samplerId, encoder) : "";
+      const modelFamily = detectComfyModelFamily(graph, model);
+      const activeLoras = sampler ? collectActiveComfyLoras(graph, samplerInputs.model) : [];
+      const size = sampler ? comfyLatentSize(graph, sampler) : (fallbackSettings.Size || "");
+
+      const settings = {};
+      if (modelFamily) settings["Model Family"] = modelFamily;
+      if (model) settings.Model = model;
+      if (textEncoder) settings["Text Encoder"] = textEncoder;
+      if (vae) settings.VAE = vae;
+      if (activeLoras.length) settings["Active LoRA"] = activeLoras.join("; ");
+      if (isScalarValue(samplerInputs.steps)) settings.Steps = samplerInputs.steps;
+      else if (fallbackSettings.Steps != null) settings.Steps = fallbackSettings.Steps;
+      if (isScalarValue(samplerInputs.cfg)) settings["CFG scale"] = samplerInputs.cfg;
+      else if (fallbackSettings["CFG scale"] != null) settings["CFG scale"] = fallbackSettings["CFG scale"];
+      if (isScalarValue(samplerInputs.seed)) settings.Seed = samplerInputs.seed;
+      else if (isScalarValue(samplerInputs.noise_seed)) settings.Seed = samplerInputs.noise_seed;
+      else if (fallbackSettings.Seed != null) settings.Seed = fallbackSettings.Seed;
+      if (isScalarValue(samplerInputs.sampler_name)) settings.Sampler = samplerInputs.sampler_name;
+      else if (fallbackSettings.Sampler != null) settings.Sampler = fallbackSettings.Sampler;
+      if (isScalarValue(samplerInputs.scheduler)) settings.Scheduler = samplerInputs.scheduler;
+      else if (fallbackSettings.Scheduler != null) settings.Scheduler = fallbackSettings.Scheduler;
+      if (isScalarValue(samplerInputs.denoise)) settings.Denoise = samplerInputs.denoise;
+      else if (fallbackSettings.Denoise != null) settings.Denoise = fallbackSettings.Denoise;
+      if (size) settings.Size = size;
 
       return {
         positive: positives.join("\n\n").trim(),
         negative: negatives.join("\n\n").trim(),
         settings: Object.entries(settings).map(([key, value]) => `${key}: ${value}`).join(", "),
+        positiveResolved,
+        negativeResolved,
       };
     }
 
-    function addNodeRef(set, value) {
-      if (Array.isArray(value) && value.length) set.add(String(value[0]));
+    function addUniqueComfyText(target, value) {
+      const text = String(value || "").trim();
+      if (text && !target.includes(text)) target.push(text);
+    }
+
+    function parseComfyReference(value) {
+      if (!Array.isArray(value) || value.length < 2) return null;
+      const nodeId = String(value[0]);
+      const outputSlot = Number(value[1]);
+      if (!nodeId || !Number.isFinite(outputSlot)) return null;
+      return { nodeId, outputSlot };
+    }
+
+    function comfySwitchEnabled(value) {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") return /^(true|on|1|yes)$/i.test(value.trim());
+      return Boolean(value);
+    }
+
+    function resolveComfyInputText(graph, value, polarity, seen) {
+      if (typeof value === "string") {
+        return { resolved: true, text: normalizePromptText(value.trim()) };
+      }
+      if (!parseComfyReference(value)) return { resolved: false, text: "" };
+      return resolveComfyPromptReference(graph, value, polarity, seen);
+    }
+
+    function resolveComfyPromptReference(graph, value, polarity, seen = new Set()) {
+      const ref = parseComfyReference(value);
+      if (!ref) return { resolved: false, text: "" };
+
+      const marker = `${ref.nodeId}:${ref.outputSlot}:${polarity}`;
+      if (seen.has(marker)) return { resolved: false, text: "" };
+      const nextSeen = new Set(seen);
+      nextSeen.add(marker);
+
+      return resolveComfyPromptNode(graph, graph?.[ref.nodeId], ref.outputSlot, polarity, nextSeen);
+    }
+
+    function resolveComfyPromptNode(graph, node, outputSlot, polarity, seen) {
+      if (!node || typeof node !== "object") return { resolved: false, text: "" };
+      const inputs = node.inputs || {};
+      const classType = String(node.class_type || "");
+
+      if (/ConditioningZeroOut/i.test(classType)) {
+        return { resolved: true, text: "" };
+      }
+
+      if (classType === "ComfySwitchNode") {
+        const enabled = comfySwitchEnabled(inputs.switch);
+        const branch = enabled ? inputs.on_true : inputs.on_false;
+        const resolved = resolveComfyInputText(graph, branch, polarity, seen);
+        if (resolved.resolved) return resolved;
+        return resolveComfyInputText(graph, enabled ? inputs.on_false : inputs.on_true, polarity, seen);
+      }
+
+      const hasPrompt = Object.prototype.hasOwnProperty.call(inputs, "prompt");
+      const hasNegativePrompt = Object.prototype.hasOwnProperty.call(inputs, "negative_prompt");
+      if (hasPrompt && hasNegativePrompt) {
+        const inputName = outputSlot === 1 ? "negative_prompt" : "prompt";
+        return resolveComfyInputText(graph, inputs[inputName], polarity, seen);
+      }
+
+      if (polarity === "negative" && hasNegativePrompt) {
+        const resolved = resolveComfyInputText(graph, inputs.negative_prompt, polarity, seen);
+        if (resolved.resolved) return resolved;
+      }
+      if (polarity === "positive" && hasPrompt) {
+        const resolved = resolveComfyInputText(graph, inputs.prompt, polarity, seen);
+        if (resolved.resolved) return resolved;
+      }
+      if (Object.prototype.hasOwnProperty.call(inputs, "text")) {
+        const resolved = resolveComfyInputText(graph, inputs.text, polarity, seen);
+        if (resolved.resolved) return resolved;
+      }
+
+      const candidates = polarity === "negative"
+        ? ["negative", "prompt", "value", "string"]
+        : ["positive", "value", "string"];
+      for (const inputName of candidates) {
+        if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
+        const resolved = resolveComfyInputText(graph, inputs[inputName], polarity, seen);
+        if (resolved.resolved) return resolved;
+      }
+
+      for (const [inputName, value] of Object.entries(inputs)) {
+        if (!/(conditioning|positive|negative|prompt|text|string|value|on_true|on_false)/i.test(inputName)) continue;
+        const resolved = resolveComfyInputText(graph, value, polarity, seen);
+        if (resolved.resolved) return resolved;
+      }
+
+      return { resolved: false, text: "" };
+    }
+
+    function findComfyUpstreamNode(graph, value, predicate, seen = new Set()) {
+      const ref = parseComfyReference(value);
+      if (!ref) return null;
+      const marker = `${ref.nodeId}:${ref.outputSlot}`;
+      if (seen.has(marker)) return null;
+      const nextSeen = new Set(seen);
+      nextSeen.add(marker);
+
+      const node = graph?.[ref.nodeId];
+      if (!node || typeof node !== "object") return null;
+      if (predicate(node, ref)) return { id: ref.nodeId, node, outputSlot: ref.outputSlot };
+
+      const inputs = node.inputs || {};
+      if (String(node.class_type || "") === "ComfySwitchNode") {
+        const enabled = comfySwitchEnabled(inputs.switch);
+        const active = enabled ? inputs.on_true : inputs.on_false;
+        const activeHit = findComfyUpstreamNode(graph, active, predicate, nextSeen);
+        if (activeHit) return activeHit;
+      }
+
+      const preferred = ["model", "unet", "clip", "vae", "conditioning", "positive", "negative", "samples", "latent_image", "image", "images"];
+      for (const inputName of preferred) {
+        if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
+        const hit = findComfyUpstreamNode(graph, inputs[inputName], predicate, nextSeen);
+        if (hit) return hit;
+      }
+      for (const inputValue of Object.values(inputs)) {
+        if (!parseComfyReference(inputValue)) continue;
+        const hit = findComfyUpstreamNode(graph, inputValue, predicate, nextSeen);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    function resolveComfyScalarValue(graph, value, seen = new Set()) {
+      if (isScalarValue(value)) return value;
+      const ref = parseComfyReference(value);
+      if (!ref) return null;
+      const marker = `${ref.nodeId}:${ref.outputSlot}`;
+      if (seen.has(marker)) return null;
+      const nextSeen = new Set(seen);
+      nextSeen.add(marker);
+
+      const node = graph?.[ref.nodeId];
+      if (!node || typeof node !== "object") return null;
+      const inputs = node.inputs || {};
+      const classType = String(node.class_type || "");
+
+      if (classType === "ResolutionSelector") {
+        const aspect = String(inputs.aspect_ratio || "");
+        const match = aspect.match(/(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/);
+        const megapixels = Number(inputs.megapixels);
+        const multiple = Math.max(1, Number(inputs.multiple) || 1);
+        if (match && Number.isFinite(megapixels) && megapixels > 0) {
+          const ratio = Number(match[1]) / Number(match[2]);
+          const pixels = megapixels * 1024 * 1024;
+          const rawWidth = Math.sqrt(pixels * ratio);
+          const rawHeight = Math.sqrt(pixels / ratio);
+          const width = Math.max(multiple, Math.round(rawWidth / multiple) * multiple);
+          const height = Math.max(multiple, Math.round(rawHeight / multiple) * multiple);
+          return ref.outputSlot === 1 ? height : width;
+        }
+      }
+
+      for (const inputName of ["value", "width", "height", "int", "number"]) {
+        if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
+        const resolved = resolveComfyScalarValue(graph, inputs[inputName], nextSeen);
+        if (resolved != null) return resolved;
+      }
+      return null;
+    }
+
+    function comfyModelNameFromSampler(graph, sampler) {
+      const hit = findComfyUpstreamNode(
+        graph,
+        sampler?.inputs?.model,
+        (node) => ["UNETLoader", "CheckpointLoaderSimple", "CheckpointLoader"].includes(String(node.class_type || ""))
+      );
+      if (!hit) return "";
+      const inputs = hit.node.inputs || {};
+      return String(inputs.unet_name || inputs.ckpt_name || inputs.model_name || "");
+    }
+
+    function comfyTextEncoderName(graph, encoder) {
+      if (!encoder) return "";
+      const hit = findComfyUpstreamNode(
+        graph,
+        encoder.node?.inputs?.clip,
+        (node) => String(node.class_type || "") === "CLIPLoader"
+      );
+      return hit ? String(hit.node.inputs?.clip_name || "") : "";
+    }
+
+    function comfyVaeName(graph, samplerId, encoder) {
+      if (encoder && parseComfyReference(encoder.node?.inputs?.vae)) {
+        const hit = findComfyUpstreamNode(
+          graph,
+          encoder.node.inputs.vae,
+          (node) => String(node.class_type || "") === "VAELoader"
+        );
+        if (hit) return String(hit.node.inputs?.vae_name || "");
+      }
+
+      for (const node of Object.values(graph || {})) {
+        if (String(node?.class_type || "") !== "VAEDecode") continue;
+        const samples = parseComfyReference(node.inputs?.samples);
+        if (!samples || samples.nodeId !== String(samplerId)) continue;
+        const hit = findComfyUpstreamNode(
+          graph,
+          node.inputs?.vae,
+          (candidate) => String(candidate.class_type || "") === "VAELoader"
+        );
+        if (hit) return String(hit.node.inputs?.vae_name || "");
+      }
+
+      const vaeLoaders = Object.values(graph || {}).filter(
+        (node) => String(node?.class_type || "") === "VAELoader"
+      );
+      return vaeLoaders.length === 1 ? String(vaeLoaders[0].inputs?.vae_name || "") : "";
+    }
+
+    function detectComfyModelFamily(graph, modelName) {
+      const hasKrea2Clip = Object.values(graph || {}).some(
+        (node) => String(node?.class_type || "") === "CLIPLoader" &&
+          String(node.inputs?.type || "").toLowerCase() === "krea2"
+      );
+      if (hasKrea2Clip || /(?:^|[\\/])(krea2|kres2)|\bkrea2\b|\bkres2\b/i.test(String(modelName || ""))) {
+        return "Krea2";
+      }
+
+      const hasQwen21Encoder = Object.values(graph || {}).some(
+        (node) => String(node?.class_type || "") === "TextEncodeQwenImage21"
+      );
+      if (hasQwen21Encoder || /qwen_image_2[._-]?1/i.test(String(modelName || ""))) {
+        return "Qwen Image 2.1";
+      }
+      return "";
+    }
+
+    function collectActiveComfyLoras(graph, value, seen = new Set(), output = []) {
+      const ref = parseComfyReference(value);
+      if (!ref) return [...new Set(output)];
+      const marker = `${ref.nodeId}:${ref.outputSlot}`;
+      if (seen.has(marker)) return [...new Set(output)];
+      const nextSeen = new Set(seen);
+      nextSeen.add(marker);
+
+      const node = graph?.[ref.nodeId];
+      if (!node || typeof node !== "object") return [...new Set(output)];
+      const inputs = node.inputs || {};
+      const classType = String(node.class_type || "");
+
+      if (/Power Lora Loader/i.test(classType)) {
+        for (const [inputName, item] of Object.entries(inputs)) {
+          if (!/^lora_/i.test(inputName) || !item || typeof item !== "object" || item.on !== true || !item.lora) continue;
+          output.push(`${item.lora} @${item.strength}`);
+        }
+      }
+      if (/LoraLoader/i.test(classType) && typeof inputs.lora_name === "string" && Number(inputs.strength_model) !== 0) {
+        output.push(`${inputs.lora_name} @${inputs.strength_model}`);
+      }
+
+      if (parseComfyReference(inputs.model)) {
+        return collectActiveComfyLoras(graph, inputs.model, nextSeen, output);
+      }
+      return [...new Set(output)];
+    }
+
+    function comfyLatentSize(graph, sampler) {
+      let latent = sampler?.inputs?.latent_image;
+      const initial = parseComfyReference(latent);
+      if (initial) {
+        const node = graph?.[initial.nodeId];
+        if (String(node?.class_type || "") === "ComfySwitchNode") {
+          const enabled = comfySwitchEnabled(node.inputs?.switch);
+          latent = enabled ? node.inputs?.on_true : node.inputs?.on_false;
+        }
+      }
+
+      const hit = findComfyUpstreamNode(
+        graph,
+        latent,
+        (node) => String(node.class_type || "") === "EmptyLatentImage"
+      );
+      if (!hit) return "";
+      const width = resolveComfyScalarValue(graph, hit.node.inputs?.width);
+      const height = resolveComfyScalarValue(graph, hit.node.inputs?.height);
+      if (!Number.isFinite(Number(width)) || !Number.isFinite(Number(height))) return "";
+      return `${width}x${height}`;
     }
 
     function isScalarValue(value) {
@@ -3125,7 +3509,7 @@
 
     function parseSettings(settings) {
       if (!settings || /\(settings not found\)/i.test(settings)) return [];
-      const wanted = new Set(["Steps", "Sampler", "CFG scale", "Seed", "Size", "Model", "Model hash", "Clip skip", "RNG"]);
+      const wanted = new Set(["Model Family", "Model", "Text Encoder", "VAE", "Active LoRA", "Steps", "Sampler", "Scheduler", "CFG scale", "Seed", "Denoise", "Size", "Model hash", "Clip skip", "RNG"]);
       const pairs = [];
       for (const part of settings.split(",")) {
         const match = part.trim().match(/^([^:]+):\s*(.+)$/);
@@ -3568,6 +3952,7 @@
       }
       localStorage.setItem("avifPromptViewerThemeDefaultVersion", defaultThemeVersion);
     }
+    els.aboutVersion.textContent = `v${appVersion}`;
     setTheme(localStorage.getItem("avifPromptViewerTheme") || defaultTheme);
     setLanguage(localStorage.getItem("avifPromptViewerLanguage") || "auto");
     setThumbnailSize(folderThumbSize, false);

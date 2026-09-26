@@ -38,7 +38,14 @@ function createWindow() {
   win.loadFile(getViewerPath());
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const protocol = new URL(url).protocol;
+      if (protocol === "https:" || protocol === "http:") {
+        void shell.openExternal(url);
+      }
+    } catch {
+      // Ignore malformed or unsupported external URLs.
+    }
     return { action: "deny" };
   });
 }

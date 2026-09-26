@@ -11,8 +11,8 @@
     "build:portable": "electron-builder --win portable"
   },
   "devDependencies": {
-    "electron": "^38.4.0",
-    "electron-builder": "^26.0.12"
+    "electron": "44.4.5",
+    "electron-builder": "26.16.1"
   },
   "build": {
     "appId": "local.ez-prompt-viewer",
