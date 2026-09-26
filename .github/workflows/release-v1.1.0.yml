@@ -36,7 +36,14 @@ jobs:
           $version = node -p "require('./package.json').version"
           if ($version -ne "1.1.0") { throw "package.json version is $version, expected 1.1.0" }
           node --check main.js
-          node -e "const fs=require('fs'); const html=fs.readFileSync('avif_prompt_viewer.html','utf8'); const m=html.match(/<script>([\\s\\S]*?)<\\/script>/); if(!m) throw new Error('script block missing'); new Function(m[1]); if(!html.includes('const appVersion = \"1.1.0\"')) throw new Error('appVersion mismatch'); console.log('v1.1.0 source validation OK');"
+          $html = Get-Content "avif_prompt_viewer.html" -Raw
+          if ($html -notmatch 'const appVersion = "1\.1\.0";') { throw "appVersion mismatch" }
+          $match = [regex]::Match($html, '(?s)<script>(.*?)</script>')
+          if (-not $match.Success) { throw "script block missing" }
+          $scriptPath = Join-Path $env:RUNNER_TEMP "ez-prompt-viewer-script.js"
+          Set-Content -Path $scriptPath -Value $match.Groups[1].Value -Encoding utf8
+          node --check $scriptPath
+          Write-Host "v1.1.0 source validation OK"
 
       - name: Build Windows installer
         shell: pwsh
