@@ -1,6 +1,6 @@
 # EZ Prompt Viewer
 
-[日本語 README](README_ja.md)
+**Languages:** English | [日本語](README_ja.md)
 
 EZ Prompt Viewer is a local Windows desktop app for viewing prompt and generation metadata stored in image files. Images are processed locally on your machine.
 
@@ -22,9 +22,10 @@ Current version: **v1.1.0**
 
 ## Download
 
-Windows builds are provided from the repository Releases page:
+- [EZ Prompt Viewer v1.1.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.1.0)
+- [Windows Installer (EXE)](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/download/v1.1.0/EZ-Prompt-Viewer-Setup.exe)
 
-https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases
+Older releases remain available from the [Releases page](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases).
 
 ## Supported Image Formats
 
