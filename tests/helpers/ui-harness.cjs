@@ -96,12 +96,14 @@ function fresh() {
       retainedBytes: typeof lastBytes === 'undefined' ? null : lastBytes,
       cacheSize: typeof parsedFileCache === 'undefined' ? 0 : parsedFileCache.size,
       cacheLimit: typeof PARSED_FILE_CACHE_LIMIT === 'undefined' ? 0 : PARSED_FILE_CACHE_LIMIT,
+      cacheBytes: typeof parsedFileCacheBytes === 'undefined' ? 0 : parsedFileCacheBytes,
+      cacheByteLimit: typeof PARSED_FILE_CACHE_BYTE_LIMIT === 'undefined' ? 0 : PARSED_FILE_CACHE_BYTE_LIMIT,
       lightboxSrc: els.lightboxImage.src, previewSrc: els.preview.src }),
   };`, context, { filename: sourcePath });
   context.__stats = stats;
   vm.runInContext(`parseMetadata = (bytes, file) => {
     __stats.parses.push(file.name);
-    return { positive: file.positive ?? file.name, negative: file.negative || '', settings: file.settings || '', records: [], detected: [] };
+    return { positive: file.positive ?? file.name, negative: file.negative || '', settings: file.settings || '', records: file.records || [], provenance: file.provenance, warnings: file.warnings, detected: [] };
   };
   const originalRender = render;
   render = (...args) => { __stats.renders.push(args[1].name); return originalRender(...args); };`, context);

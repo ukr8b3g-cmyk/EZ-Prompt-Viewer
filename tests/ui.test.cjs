@@ -253,3 +253,28 @@ test('UI: a new file resets edit state without changing canonical parsed text', 
   assert.equal(h.nodes.get('positiveText').textContent, 'A.png');
   assert.equal(h.nodes.get('positiveText').getAttribute('contenteditable'), 'false');
 });
+
+test('UI performance: cache byte budget includes raw records, provenance and warnings', async () => {
+  for (const field of ['records', 'provenance', 'warnings']) {
+    const h = fresh(); const limit = h.api.state().cacheByteLimit;
+    assert.ok(limit > 0 && limit <= 32 * 1024 * 1024);
+    const large = 'x'.repeat(limit);
+    const data = { records: [{ label: 'raw metadata', value: large }], provenance: { source: large }, warnings: [large] };
+    const file = h.file('large.png', { [field]: data[field] });
+    h.api.loadFolderFiles([file]); await h.api.loadFolderIndex(0); await h.api.loadFolderIndex(0);
+    assert.equal(h.api.state().cacheSize, 0, `${field} must contribute to the budget`);
+    assert.equal(h.stats.parses.length, 2, 'oversized metadata is not cached');
+    assert.ok(h.api.state().cacheBytes <= limit);
+    h.api.clearAll(); assert.equal(h.api.state().cacheBytes, 0);
+  }
+});
+
+test('UI performance: least-recently-used entries are evicted and recalculated', async () => {
+  const h = fresh(); const count = h.api.state().cacheLimit + 1;
+  const files = Array.from({ length: count }, (_, i) => h.file(`${i}.png`)); h.api.loadFolderFiles(files);
+  for (let i = 0; i < count - 1; i++) await h.api.loadFolderIndex(i);
+  await h.api.loadFolderIndex(0); // Refresh A so the next addition must evict B.
+  await h.api.loadFolderIndex(count - 1); await h.api.loadFolderIndex(0); await h.api.loadFolderIndex(1);
+  assert.equal(h.stats.reads.filter(name => name === '0.png').length, 1);
+  assert.equal(h.stats.reads.filter(name => name === '1.png').length, 2);
+});

@@ -1420,9 +1420,16 @@
     let formatApplied = false;
     let lastParsed = null;
     let lastFile = null;
-    let lastBytes = null;
+    let lastDetectedType = "";
+    // File identity avoids name/size collisions; cap metadata retention per folder.
+    const PARSED_FILE_CACHE_LIMIT = 32;
+    const PARSED_FILE_CACHE_BYTE_LIMIT = 8 * 1024 * 1024;
+    const parsedFileCache = new Map();
+    let parsedFileCacheBytes = 0;
     let folderThumbUrls = [];
     let folderFiles = [];
+    let folderThumbButtons = [];
+    let activeFolderThumb = null;
     let folderIndex = -1;
     let folderThumbSize = Number(localStorage.getItem("avifPromptViewerThumbnailSize") || 74);
     let slideshowTimer = 0;
@@ -1923,6 +1930,12 @@
       setThumbnailSize(Number(els.thumbnailSize.value), true);
     });
 
+    els.folderList.addEventListener("click", (event) => {
+      const button = event.target.closest?.("[data-folder-index]");
+      if (!button || !els.folderList.contains(button)) return;
+      loadFolderIndex(Number(button.dataset.folderIndex));
+    });
+
     els.folderList.addEventListener("wheel", (event) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
@@ -2056,7 +2069,7 @@
       formatApplied = false;
       lastParsed = null;
       lastFile = null;
-      lastBytes = null;
+      lastDetectedType = "";
       civitaiResults = null;
       editableText = null;
       renderedText = null;
@@ -2090,6 +2103,10 @@
       folderThumbUrls.forEach((url) => URL.revokeObjectURL(url));
       folderThumbUrls = [];
       folderFiles = [];
+      folderThumbButtons = [];
+      activeFolderThumb = null;
+      parsedFileCache.clear();
+      parsedFileCacheBytes = 0;
       folderIndex = -1;
       els.folderList.innerHTML = "";
       els.folderPanel.hidden = true;
@@ -2188,17 +2205,13 @@
         const name = file.webkitRelativePath || file.name;
         return `
           <button class="folder-thumb" type="button" data-folder-index="${index}" title="${escapeHtml(name)}">
-            <img src="${escapeHtml(url)}" alt="">
+            <img src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async">
             <span>${escapeHtml(file.name)}</span>
           </button>
         `;
       }).join("");
 
-      els.folderList.querySelectorAll("[data-folder-index]").forEach((button) => {
-        button.addEventListener("click", () => {
-          loadFolderIndex(Number(button.dataset.folderIndex));
-        });
-      });
+      folderThumbButtons = Array.from(els.folderList.querySelectorAll("[data-folder-index]"));
       updateFolderNav();
     }
 
@@ -2222,9 +2235,12 @@
       els.slideshowToggle.disabled = !canNavigate;
       els.slideshowInterval.disabled = !canNavigate;
       els.imageIndex.textContent = canNavigate ? `${folderIndex + 1} / ${folderFiles.length}` : "- / -";
-      els.folderList.querySelectorAll(".folder-thumb").forEach((button) => {
-        button.classList.toggle("active", Number(button.dataset.folderIndex) === folderIndex);
-      });
+      const nextThumb = folderThumbButtons[folderIndex] || null;
+      if (activeFolderThumb !== nextThumb) {
+        activeFolderThumb?.classList.remove("active");
+        nextThumb?.classList.add("active");
+        activeFolderThumb = nextThumb;
+      }
     }
 
     function toggleSlideshow() {
@@ -2296,16 +2312,63 @@
       await loadFile(file);
     }
 
+    function estimateMetadataBytes(value) {
+      // An intentionally conservative estimate, not a browser heap measurement.
+      // Include every parsed field (raw records, graph, provenance and warnings).
+      const pending = [value];
+      const seen = new WeakSet();
+      let bytes = 0;
+      while (pending.length && bytes <= PARSED_FILE_CACHE_BYTE_LIMIT) {
+        const item = pending.pop();
+        if (typeof item === "string") bytes += item.length * 2;
+        else if (item && typeof item === "object" && !seen.has(item)) {
+          seen.add(item);
+          bytes += 32;
+          if (ArrayBuffer.isView(item)) bytes += item.buffer.byteLength;
+          else if (item instanceof ArrayBuffer) bytes += item.byteLength;
+          else {
+            for (const key of Object.keys(item)) {
+              bytes += key.length * 2 + 16;
+              pending.push(item[key]);
+            }
+          }
+        } else bytes += 8;
+      }
+      return bytes;
+    }
+
+    function rememberParsedFile(file, cached) {
+      const previous = parsedFileCache.get(file);
+      if (previous) {
+        parsedFileCache.delete(file);
+        parsedFileCacheBytes -= previous.estimatedBytes;
+      }
+      if (cached.estimatedBytes > PARSED_FILE_CACHE_BYTE_LIMIT) return;
+      parsedFileCache.set(file, cached);
+      parsedFileCacheBytes += cached.estimatedBytes;
+      while (parsedFileCache.size > PARSED_FILE_CACHE_LIMIT || parsedFileCacheBytes > PARSED_FILE_CACHE_BYTE_LIMIT) {
+        const oldest = parsedFileCache.keys().next().value;
+        parsedFileCacheBytes -= parsedFileCache.get(oldest).estimatedBytes;
+        parsedFileCache.delete(oldest);
+      }
+    }
+
     async function loadFile(file) {
       invalidateSelection();
       const generation = loadGeneration;
       loadBusy = true;
       try {
-        const buffer = await file.arrayBuffer();
-        if (generation !== loadGeneration) return false;
-        const bytes = new Uint8Array(buffer);
-        const parsed = parseMetadata(bytes, file);
-        if (generation !== loadGeneration) return false;
+        let cached = parsedFileCache.get(file);
+        if (!cached) {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          if (generation !== loadGeneration) return false;
+          cached = { parsed: parseMetadata(bytes, file), type: detectType(bytes, file.name) };
+          if (generation !== loadGeneration) return false;
+          cached.estimatedBytes = estimateMetadataBytes(cached);
+        }
+        // Refresh LRU order without caching image buffers or object URLs.
+        rememberParsedFile(file, cached);
+        const { parsed, type } = cached;
 
         const url = URL.createObjectURL(file);
         const previousUrl = previewObjectUrl;
@@ -2314,17 +2377,17 @@
         if (els.lightbox.classList.contains("open")) els.lightboxImage.src = url;
         if (previousUrl) URL.revokeObjectURL(previousUrl);
         document.body.classList.add("has-file");
-        els.fileInfo.textContent = `${file.name} / ${formatBytes(file.size)} / ${file.type || detectType(bytes)}`;
+        els.fileInfo.textContent = `${file.name} / ${formatBytes(file.size)} / ${file.type || type}`;
 
         formatApplied = false;
         lastParsed = parsed;
         lastFile = file;
-        lastBytes = bytes;
+        lastDetectedType = type;
         editableText = { positive: parsed.positive || null, negative: parsed.negative || null, settings: parsed.settings || null };
         renderedText = null;
         civitaiResults = null;
         setEditMode(false);
-        render(parsed, file, bytes);
+        render(parsed, file, type);
         return true;
       } catch {
         if (generation === loadGeneration) showLoadError();
@@ -2358,7 +2421,7 @@
       els.aboutOverlay.setAttribute("aria-hidden", "true");
     }
 
-    function render(parsed, file, bytes) {
+    function render(parsed, file, detectedType) {
       const hasUseful = Boolean(parsed.positive || parsed.negative || parsed.settings || parsed.prompt || parsed.workflow || parsed.a1111 || parsed.records.length);
       els.status.className = `status ${hasUseful ? "good" : "warn"}`;
       els.status.textContent = hasUseful
@@ -2367,7 +2430,7 @@
 
       const summary = {
         File: file.name,
-        Type: file.type || detectType(bytes),
+        Type: file.type || detectedType,
         Bytes: formatBytes(file.size),
         Detected: parsed.detected.join(", ") || "none",
         [t("comfy")]: isComfyWorkflow(parsed) ? t("yes") : t("no"),
@@ -2401,10 +2464,10 @@
       setEditMode(els.positive.getAttribute("contenteditable") === "true");
       els.civitaiLookup.textContent = t(civitaiController ? "lookupRunning" : civitaiResetTimer ? "lookupDone" : "lookup");
       if (!els.folderPanel.hidden) {
-        const count = els.folderList.querySelectorAll(".folder-thumb").length;
+        const count = folderFiles.length;
         els.folderCount.textContent = t("folderCount").replace("{count}", count);
       }
-      if (lastParsed && lastFile && lastBytes) render(lastParsed, lastFile, lastBytes);
+      if (lastParsed && lastFile) render(lastParsed, lastFile, lastDetectedType);
       else {
         els.status.textContent = t("statusEmpty");
         els.civitaiResources.textContent = t("noHashes");
