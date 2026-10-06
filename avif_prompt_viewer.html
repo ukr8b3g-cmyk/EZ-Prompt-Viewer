@@ -3375,7 +3375,7 @@
       const inputs = node.inputs || {};
       const classType = String(node.class_type || "");
 
-      if (typeof DesignerAdapters !== "undefined") {
+      if (typeof DesignerAdapters !== "undefined" && DesignerAdapters.supports(node)) {
         const designer = DesignerAdapters.resolve(node, outputSlot);
         if (designer) return designer;
       }
@@ -3494,7 +3494,7 @@
         return selected == null ? null : resolveComfyScalarValue(graph, comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false, nextSeen);
       }
 
-      if (typeof DesignerAdapters !== "undefined") {
+      if (typeof DesignerAdapters !== "undefined" && DesignerAdapters.supports(node)) {
         const designer = DesignerAdapters.resolve(node, ref.outputSlot);
         if (designer?.resolved && isScalarValue(designer.value)) return designer.value;
         if (designer) return null;
@@ -3915,17 +3915,17 @@
       return clean;
     }
 
-    function extractJsonAround(text, key) {
+    function extractJsonAround(text, key, budget = { remaining: 8 * 1024 * 1024 }) {
       const out = [];
       const quoted = `"${key}"`;
       let index = text.indexOf(quoted);
       let attempts = 0;
       const checkedStarts = new Set();
-      while (index !== -1 && out.length < 8 && attempts++ < 32) {
+      while (index !== -1 && out.length < 8 && attempts++ < 32 && budget.remaining > 0) {
         const start = text.lastIndexOf("{", index);
         if (checkedStarts.has(start)) { index = text.indexOf(quoted, index + quoted.length); continue; }
         checkedStarts.add(start);
-        const end = findJsonEnd(text, start);
+        const end = findJsonEnd(text, start, budget);
         if (start !== -1 && end !== -1) {
           const json = text.slice(start, end + 1);
           out.push({ label: `Scan ${key}`, value: json });
@@ -3935,15 +3935,15 @@
       return out.slice(0, 8);
     }
 
-    function extractPrefixedJson(text, key) {
+    function extractPrefixedJson(text, key, budget = { remaining: 8 * 1024 * 1024 }) {
       const out = [];
       const pattern = new RegExp(`(?:^|[\\x00\\n\\r])${key}\\s*:`, "gi");
       let match = pattern.exec(text);
       let attempts = 0;
-      while (match && out.length < 8 && attempts++ < 32) {
+      while (match && out.length < 8 && attempts++ < 32 && budget.remaining > 0) {
         const brace = text.indexOf("{", pattern.lastIndex);
         if (brace !== -1) {
-          const end = findJsonEnd(text, brace);
+          const end = findJsonEnd(text, brace, budget);
           if (end !== -1) out.push({ label: `Scan ${key}`, value: text.slice(brace, end + 1) });
         }
         match = pattern.exec(text);
@@ -4081,12 +4081,13 @@
       return /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uac00-\ud7af]/.test(text);
     }
 
-    function findJsonEnd(text, start) {
+    function findJsonEnd(text, start, budget = null) {
       if (start < 0) return -1;
       let depth = 0;
       let inString = false;
       let escaped = false;
       for (let i = start; i < text.length; i++) {
+        if (budget && budget.remaining-- <= 0) return -1;
         const ch = text[i];
         if (inString) {
           if (escaped) escaped = false;

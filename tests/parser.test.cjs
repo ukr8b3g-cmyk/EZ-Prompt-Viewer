@@ -111,3 +111,7 @@ test('oversized structured chunks are not decoded before size checks', () => {
   const c=parserContext({TextDecoder:Decoder});const bytes=Buffer.alloc(18*1024*1024+8);bytes.writeUInt32BE(bytes.length);bytes.write('mdat',4);const records=[];
   c.parseIsoBmff(bytes,records);assert.equal(largest,0);assert.ok(records.some(r=>r.warning));
 });
+test('malformed nested JSON candidates share a bounded character budget', () => {
+  const c=parserContext();const text='{"prompt":'.repeat(32)+'x'.repeat(100000);const budget={remaining:10000};
+  assert.equal(c.extractJsonAround(text,'prompt',budget).length,0);assert.ok(budget.remaining>=-1&&budget.remaining<=0);
+});
