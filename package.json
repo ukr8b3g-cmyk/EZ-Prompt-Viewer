@@ -8,11 +8,16 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win nsis",
-    "build:portable": "electron-builder --win portable"
+    "build:portable": "electron-builder --win portable",
+    "test": "node --test",
+    "check": "node scripts/check-syntax.cjs",
+    "test:browser": "node scripts/browser-smoke.cjs",
+    "build:check": "electron-builder --win --dir --publish never"
   },
   "devDependencies": {
     "electron": "44.4.5",
-    "electron-builder": "26.16.1"
+    "electron-builder": "26.16.1",
+    "playwright-core": "1.63.0"
   },
   "build": {
     "appId": "local.ez-prompt-viewer",
@@ -38,6 +43,14 @@
           "about-character.*",
           "icon.*"
         ]
+      },
+      {
+        "from": "designer_adapters.js",
+        "to": "designer_adapters.js"
+      },
+      {
+        "from": "workflow_adapter.js",
+        "to": "workflow_adapter.js"
       }
     ],
     "win": {

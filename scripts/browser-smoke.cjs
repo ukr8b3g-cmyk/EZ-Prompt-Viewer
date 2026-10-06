@@ -1,0 +1,52 @@
+// Real Chromium smoke test. No external network or image generation is required.
+const {chromium}=require('playwright-core');
+const fs=require('node:fs');
+const path=require('node:path');
+const {pathToFileURL}=require('node:url');
+const assert=require('node:assert/strict');
+const {png,graph}=require('../tests/helpers/container-fixtures.cjs');
+const candidates=[process.env.CHROME_PATH,'/usr/bin/chromium','/usr/bin/google-chrome','/opt/google/chrome/chrome'].filter(Boolean);
+const executablePath=candidates.find(p=>fs.existsSync(p));
+if(!executablePath)throw new Error('Set CHROME_PATH to an installed Chromium/Chrome executable');
+(async()=>{
+  const browser=await chromium.launch({executablePath,headless:true,args:['--no-sandbox']});
+  const page=await browser.newPage({viewport:{width:1280,height:900}});
+  page.setDefaultTimeout(10000);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route(/^https?:/,route=>route.abort());
+  await page.goto(pathToFileURL(path.resolve('avif_prompt_viewer.html')).href);
+  const load=async(name,bytes)=>page.locator('#fileInput').setInputFiles({name,mimeType:'image/png',buffer:bytes});
+  await load('utf8.png',png('prompt',Buffer.from(JSON.stringify(graph('美しい猫, café')))));
+  await page.waitForFunction(()=>document.querySelector('#positiveText').textContent==='美しい猫, café');
+  await page.waitForFunction(()=>document.querySelector('#preview').naturalWidth===1);
+  await page.locator('#editText').click();
+  await page.locator('#positiveText').fill('red_hair, red_hair, blue_eyes');
+  await page.locator('#settingsText').fill('My edited settings');
+  await page.locator('#languageSelect').selectOption('ja');
+  assert.equal(await page.locator('#positiveText').textContent(),'red_hair, red_hair, blue_eyes');
+  assert.equal(await page.locator('#settingsText').textContent(),'My edited settings');
+  await page.locator('#formatPrompt').click();
+  assert.equal(await page.locator('#positiveText').textContent(),'red hair, blue eyes');
+  await page.locator('#themeSelect').selectOption('neon');
+  assert.equal(await page.locator('body').getAttribute('data-theme'),'neon');
+  for(const file of ['H3_Character_Sheet_Designer_wf.json','QwenImage21_Character_Sheet_Designer_wf.json']){
+    const workflow=fs.readFileSync(path.join('tests/fixtures/workflows',file));
+    await load(file+'.png',png('workflow',workflow));
+    await page.waitForFunction(()=>document.querySelector('#summaryList').textContent.includes('再構築'));
+    assert.ok((await page.locator('#positiveText').textContent()).length>1000);
+    assert.match(await page.locator('#summaryList').textContent(),/652abf0|277da76/);
+    await page.locator('#preview').click();
+    assert.equal(await page.locator('#lightbox').getAttribute('aria-hidden'),'false');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#lightbox').getAttribute('aria-hidden'),'true');
+    assert.equal(await page.locator('#lightboxImage').getAttribute('src'),null);
+  }
+  await load('metadata-free.png',png(null,Buffer.alloc(0)));
+  await page.waitForFunction(()=>document.querySelector('#status').classList.contains('warn'));
+  await page.locator('#clearAll').click();
+  assert.equal(await page.locator('#positiveText').textContent(),'');
+  assert.equal(await page.locator('#preview').getAttribute('src'),null);
+  assert.deepEqual(errors,[]);
+  console.log('Chromium smoke passed: real PNG decoding, UTF-8, edits, Format, language, theme, H3/Qwen workflow reconstruction, lightbox and Clear');
+  await browser.close();
+})().catch(error=>{console.error(error);process.exit(1);});
