@@ -2785,36 +2785,41 @@
     }
 
     function parseIsoBmff(bytes, records) {
-      walkBoxes(bytes, 0, bytes.length, "", (box) => {
+      const limited = walkBoxes(bytes, 0, bytes.length, "", (box) => {
         if (["Exif", "mime", "xml ", "uuid", "mdat", "ilst", "data"].includes(box.type)) {
           const payload = bytes.slice(box.dataStart, box.end);
           const text = decodeMetadataText(payload);
           if (looksUseful(text)) records.push({ label: `ISOBMFF ${box.path}/${box.type}`, value: cleanMetadataText(text) });
         }
       });
+      if (limited) records.push({ label: "ISOBMFF limits", value: "", warning: "Container traversal reached its depth or box-count limit." });
     }
 
     function walkBoxes(bytes, start, end, path, visit) {
-      let offset = start;
-      while (offset + 8 <= end) {
-        let size = readU32(bytes, offset);
-        const type = ascii(bytes, offset + 4, 4);
-        let header = 8;
-        if (size === 1 && offset + 16 <= end) {
-          size = Number(readU64(bytes, offset + 8));
-          header = 16;
+      const stack = [{start, end, path, depth: 0}];
+      let visited = 0;
+      let limited = false;
+      while (stack.length && visited < 10000) {
+        const frame = stack.pop();
+        let offset = frame.start;
+        while (offset + 8 <= frame.end && visited++ < 10000) {
+          let size = readU32(bytes, offset);
+          const type = ascii(bytes, offset + 4, 4);
+          let header = 8;
+          if (size === 1 && offset + 16 <= frame.end) { size = Number(readU64(bytes, offset + 8)); header = 16; }
+          if (size === 0) size = frame.end - offset;
+          const boxEnd = offset + size;
+          if (!Number.isSafeInteger(size) || size < header || boxEnd > frame.end) break;
+          const box = {type, start: offset, dataStart: offset + header, end: boxEnd, path: frame.path};
+          visit(box);
+          if (["meta", "moov", "trak", "mdia", "minf", "dinf", "stbl", "edts", "udta", "iprp", "ipco", "iinf", "iloc", "iref", "pitm"].includes(type)) {
+            if (frame.depth >= 64) limited = true;
+            else stack.push({start: offset + header + (type === "meta" ? 4 : 0), end: boxEnd, path: `${frame.path}/${type}`, depth: frame.depth + 1});
+          }
+          offset = boxEnd;
         }
-        if (size === 0) size = end - offset;
-        const boxEnd = offset + size;
-        if (size < header || boxEnd > end) break;
-        const box = { type, start: offset, dataStart: offset + header, end: boxEnd, path };
-        visit(box);
-        if (["meta", "moov", "trak", "mdia", "minf", "dinf", "stbl", "edts", "udta", "iprp", "ipco", "iinf", "iloc", "iref", "pitm"].includes(type)) {
-          const childStart = type === "meta" ? offset + header + 4 : offset + header;
-          walkBoxes(bytes, childStart, boxEnd, `${path}/${type}`, visit);
-        }
-        offset = boxEnd;
       }
+      return limited || stack.length > 0 || visited >= 10000;
     }
 
     function addStringScan(bytes, records) {
@@ -2847,8 +2852,10 @@
 
     // Parse complete bounded metadata first; display trimming must not corrupt JSON.
     function metadataText(value) {
-      const text = typeof value === "string" ? value : JSON.stringify(value);
-      return typeof text === "string" && text.length <= 8 * 1024 * 1024 ? text.trim() : "";
+      try {
+        const text = typeof value === "string" ? value : JSON.stringify(value);
+        return typeof text === "string" && text.length <= 8 * 1024 * 1024 ? text.trim() : "";
+      } catch { return ""; }
     }
 
     function recordPriority(record) {
@@ -2870,6 +2877,7 @@
         .sort((a, b) => b.priority - a.priority || a.index - b.index);
       const hasDecodedA1111 = records.some(record => isDecodedUserCommentRecord(record) && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:)/i.test(metadataText(record.value)));
       for (const {record, index, priority} of ordered) {
+        if (record.warning) result.warnings.push(record.warning);
         const raw = metadataText(record.value);
         if (!raw) {
           if (record.value) result.warnings.push(`Metadata record exceeds the 8 MiB parse limit: ${record.label}`);
@@ -3887,8 +3895,11 @@
       const quoted = `"${key}"`;
       let index = text.indexOf(quoted);
       let attempts = 0;
+      const checkedStarts = new Set();
       while (index !== -1 && out.length < 8 && attempts++ < 32) {
         const start = text.lastIndexOf("{", index);
+        if (checkedStarts.has(start)) { index = text.indexOf(quoted, index + quoted.length); continue; }
+        checkedStarts.add(start);
         const end = findJsonEnd(text, start);
         if (start !== -1 && end !== -1) {
           const json = text.slice(start, end + 1);
@@ -4097,6 +4108,14 @@
     }
 
     function tryJson(text) {
+      if (typeof text !== "string" || text.length > 8 * 1024 * 1024) return null;
+      let depth = 0, quoted = false, escaped = false;
+      for (const char of text) {
+        if (quoted) { if (escaped) escaped = false; else if (char === "\\") escaped = true; else if (char === '"') quoted = false; continue; }
+        if (char === '"') quoted = true;
+        else if (char === "{" || char === "[") { if (++depth > 128) return null; }
+        else if (char === "}" || char === "]") depth--;
+      }
       try { return JSON.parse(text); } catch { return null; }
     }
 

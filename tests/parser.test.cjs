@@ -98,3 +98,11 @@ test('BasicGuider and SamplerCustomAdvanced follow active H3 prompt links', () =
 test('custom sampler with an unsupported guider never scans unrelated text', () => {
   const c=parserContext();const g={unused:{class_type:'CLIPTextEncode',inputs:{text:'inactive old text'}},sampler:{class_type:'SamplerCustomAdvanced',inputs:{guider:['missing',0]}}};assert.equal(c.extractComfyPromptData(g).positive,'');
 });
+test('deep prompt JSON does not overflow recursive prompt flattening', () => {
+  const c=parserContext();const deep='{"a":'.repeat(4000)+'"example"'+'}'.repeat(4000);
+  assert.doesNotThrow(()=>c.extractComfyPromptData(graph(deep)));
+});
+test('deep ISO containers terminate with an explicit limit warning', () => {
+  const c=parserContext();let bytes=Buffer.alloc(0);for(let i=0;i<5000;i++){const h=Buffer.alloc(8);h.writeUInt32BE(bytes.length+8);h.write('moov',4);bytes=Buffer.concat([h,bytes]);}
+  const records=[];c.parseIsoBmff(bytes,records);assert.ok(records.some(r=>r.warning));
+});
