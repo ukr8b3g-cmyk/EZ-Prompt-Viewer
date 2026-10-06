@@ -91,3 +91,10 @@ test('disconnected settings and model family cannot contaminate a rooted sampler
   const c=parserContext();const g={s:{class_type:'KSampler',inputs:{positive:['opaque',0]}},opaque:{class_type:'Opaque',inputs:{}},unused:{class_type:'Something',inputs:{steps:99,cfg:8,seed:123,sampler_name:'unused',scheduler:'unused',denoise:0.2}},vae:{class_type:'VAELoader',inputs:{vae_name:'unused.vae'}},clip:{class_type:'CLIPLoader',inputs:{type:'krea2'}}};
   assert.equal(c.extractComfyPromptData(g).settings,'');
 });
+test('BasicGuider and SamplerCustomAdvanced follow active H3 prompt links', () => {
+  const c=parserContext();const g={text:{class_type:'PrimitiveString',inputs:{value:'saved H3 prompt'}},encoder:{class_type:'MiniMaxH3ReferenceToVideo',inputs:{prompt:['text',0],width:1280,height:720}},guider:{class_type:'BasicGuider',inputs:{conditioning:['encoder',0],model:['model',0]}},model:{class_type:'UNETLoader',inputs:{unet_name:'h3.safetensors'}},noise:{class_type:'RandomNoise',inputs:{noise_seed:42}},sampler:{class_type:'SamplerCustomAdvanced',inputs:{guider:['guider',0],noise:['noise',0],latent_image:['encoder',1]}}};
+  const r=c.extractComfyPromptData(g);assert.equal(r.positive,'saved H3 prompt');assert.equal(r.positiveResolved,true);assert.match(r.settings,/Model: h3.safetensors/);assert.match(r.settings,/Seed: 42/);assert.match(r.settings,/Size: 1280x720/);
+});
+test('custom sampler with an unsupported guider never scans unrelated text', () => {
+  const c=parserContext();const g={unused:{class_type:'CLIPTextEncode',inputs:{text:'inactive old text'}},sampler:{class_type:'SamplerCustomAdvanced',inputs:{guider:['missing',0]}}};assert.equal(c.extractComfyPromptData(g).positive,'');
+});
