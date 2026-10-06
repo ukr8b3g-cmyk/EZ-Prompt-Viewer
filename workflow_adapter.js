@@ -188,6 +188,13 @@
           continue;
         }
         graph[entry.id] = { class_type: entry.node.type, inputs: Object.create(null) };
+        if (['H3CharacterSheetDesigner', 'H3CharacterSheetDesignerReference', 'QwenImage21CharacterSheetDesigner'].includes(entry.node.type)) {
+          // Retain the compatibility evidence used by the typed compiler. A
+          // changed signature must not become silently compatible in conversion.
+          graph[entry.id].id = entry.id;
+          if (Array.isArray(entry.node.outputs)) graph[entry.id].outputs = entry.node.outputs.slice(0, 5).map(output => record(output) ? {name: output.name, type: output.type} : null);
+          if (record(entry.node.properties) && typeof entry.node.properties.ver === 'string') graph[entry.id].properties = {ver: entry.node.properties.ver.slice(0, 256)};
+        }
         provenance.nodes[entry.id] = { path: entry.path.slice(), originalId: entry.node.id, type: entry.node.type, inputs: Object.create(null) };
       }
       return scope;

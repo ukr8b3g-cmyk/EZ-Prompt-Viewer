@@ -1,8 +1,9 @@
+const zlib = require("node:zlib");
 const u32=(v,le=false)=>{const b=Buffer.alloc(4);le?b.writeUInt32LE(v):b.writeUInt32BE(v);return b};
 const u16=(v,le=false)=>{const b=Buffer.alloc(2);le?b.writeUInt16LE(v):b.writeUInt16BE(v);return b};
 const crc32=b=>{let r=0xffffffff;for(const v of b){r^=v;for(let i=0;i<8;i++)r=(r>>>1)^((r&1)?0xedb88320:0)}return (r^0xffffffff)>>>0};
 const pngChunk=(name,payload)=>{const data=Buffer.concat([Buffer.from(name),payload]);return Buffer.concat([u32(payload.length),data,u32(crc32(data))])};
-const png=(key,payload)=>Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),pngChunk('IHDR',Buffer.from('00000001000000010806000000','hex')),pngChunk('tEXt',Buffer.concat([Buffer.from(key+'\0'),payload])),pngChunk('IEND',Buffer.alloc(0))]);
+const png=(key,payload)=>Buffer.concat([Buffer.from('89504e470d0a1a0a','hex'),pngChunk('IHDR',Buffer.from('00000001000000010806000000','hex')),...(key===null?[]:[pngChunk('tEXt',Buffer.concat([Buffer.from(key+'\0'),payload]))]),pngChunk('IDAT',zlib.deflateSync(Buffer.from([0,0,0,0,255]))),pngChunk('IEND',Buffer.alloc(0))]);
 const jpeg=(marker,payload)=>Buffer.concat([Buffer.from([255,216,255,marker]),u16(payload.length+2),payload,Buffer.from([255,217])]);
 const webp=(name,payload)=>{const chunks=Buffer.concat([Buffer.from(name),u32(payload.length,true),payload,payload.length%2?Buffer.alloc(1):Buffer.alloc(0)]);return Buffer.concat([Buffer.from('RIFF'),u32(4+chunks.length,true),Buffer.from('WEBP'),chunks])};
 const box=(name,payload)=>Buffer.concat([u32(8+payload.length),Buffer.from(name),payload]);

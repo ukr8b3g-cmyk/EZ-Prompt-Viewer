@@ -463,3 +463,27 @@ npm run build
 - Windows 10 / 11
 - x64
 - Civitai照合とReleaseダウンロード時のみインターネット接続が必要
+
+### Canonical metadata and resource limits
+
+- Positive, negative and settings are selected atomically from one candidate;
+  explicit API metadata precedes workflow reconstruction
+- A selected switch's unsupported branch remains unresolved; inactive branches
+  and disconnected settings are not alternate answers
+- Full JSON is parsed before the 200,000-character display cleanup limit
+- Metadata records: 8 MiB each, 16 MiB cumulative container decode budget
+- Fallback scan: whole files up to 16 MiB, otherwise first/last 8 MiB; at most
+  128 retained records and 16 MiB candidate text
+- JSON nesting: 128; ISO box nesting: 64 and at most 10,000 visits;
+  prompt/scalar graph traversal: 256 visited states per resolution
+- Limits and unsupported Designer states produce diagnostics instead of guessed
+  widget text; format/encoding fallbacks remain supported within these budgets
+- Manual edits are per selected view and do not modify embedded image metadata
+- Cached parsed metadata is immutable, keyed by File identity and evicted by LRU
+  at 32 entries or 8 MiB estimated serialized payload, whichever is reached first
+
+Designer support is a pinned, local compiler reconstruction. Summary provenance
+and warnings distinguish saved metadata from reconstructed authoring state.
+The supported contracts and differential test sources are documented in
+`docs/designer-compatibility.md`; native subgraph boundaries and conservative
+unknown-node handling are documented in `docs/workflow-adapter.md`.

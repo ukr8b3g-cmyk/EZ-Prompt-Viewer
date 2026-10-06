@@ -202,3 +202,38 @@ npm run build
 ## Specification
 
 See [SPEC.md](SPEC.md).
+
+## Metadata correctness and Designer compatibility
+
+The viewer now selects one canonical metadata candidate, keeps valid Unicode,
+uses only active ComfyUI switch paths, and parses complete bounded JSON before
+applying display limits. Folder/Civitai requests are cancelled when superseded;
+manual edits survive language changes and formatting. Folder browsing uses a
+32-entry / 8 MiB metadata cache and lazy thumbnails.
+
+H3 legacy, H3 Reference, and Qwen Image 2.1 Character Sheet Designer prompts can
+be reconstructed locally from saved `state_json`, including the official native
+subgraph workflows and H3's BasicGuider → SamplerCustomAdvanced path. The Summary
+explicitly marks reconstructed text and its pinned compiler version. This is not
+proof of the exact prompt executed by an unknown installed compiler version.
+A metadata-free image cannot supply the missing prompt.
+
+Keep `designer_adapters.js` and `workflow_adapter.js` beside the HTML when using
+it outside the packaged app. See [Designer contracts and pinned sources](docs/designer-compatibility.md)
+and [workflow/link handling](docs/workflow-adapter.md).
+
+### Development checks
+
+- `npm ci` installs the locked development dependencies
+- `npm run check` checks runtime syntax and required script resources
+- `npm test` runs parser, container, UI-state, workflow and Designer tests
+- `DESIGNER_EXHAUSTIVE=1 npm test` also compares 1,339 cases / 4,017 outputs against
+  the bundled pinned Python compiler fixtures (Python 3 required)
+- `CHROME_PATH=/path/to/chrome npm run test:browser` checks the actual HTML in
+  Chromium using synthetic PNG metadata, without external network access
+- `npm run build:check` builds the unpacked Windows app; it does not publish a
+  release or create an installer
+
+Main-branch CI runs the exhaustive suite and browser smoke on Linux and checks
+Windows packaging, including both adapter resources. Synthetic metadata tests
+are not a ComfyUI/GPU-generation test or validation of an original user image.

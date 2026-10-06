@@ -1406,6 +1406,8 @@
     </section>
   </div>
 
+  <script src="designer_adapters.js"></script>
+  <script src="workflow_adapter.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const decoder = new TextDecoder("utf-8", { fatal: false });
@@ -1447,6 +1449,7 @@
 
     const i18n = {
       ja: {
+        provenance: "プロンプトの出所", savedMetadata: "保存されたメタデータ内の本文", reconstructedMetadata: "保存状態から再構築（生成時の実出力は未確認）", metadataWarnings: "解析上の注意",
         subtitle: "EZ Prompt Viewer は、画像ファイルから ComfyUI と A1111 のメタデータを表示する Windows 向けローカルデスクトップアプリです。",
         choose: "画像を選択",
         clearAll: "クリア",
@@ -1500,6 +1503,7 @@
         settingsMissing: "(設定なし)",
       },
       en: {
+        provenance: "Prompt source", savedMetadata: "Text saved in metadata", reconstructedMetadata: "Reconstructed from saved state (runtime output unverified)", metadataWarnings: "Parsing notes",
         subtitle: "EZ Prompt Viewer is a local Windows desktop app for viewing ComfyUI and A1111 metadata from image files.",
         choose: "Choose image",
         clearAll: "Clear",
@@ -2437,6 +2441,12 @@
         [t("a1111")]: isA1111Metadata(parsed) ? t("yes") : t("no"),
         Records: String(parsed.records.length),
       };
+      if (parsed.provenance) {
+        const reconstructed = /reconstructed/.test(parsed.provenance.kind);
+        const versions = (parsed.provenance.compilers || []).map(item => item.compilerVersion || item.version).filter(Boolean).join(", ");
+        summary[t("provenance")] = `${t(reconstructed ? "reconstructedMetadata" : "savedMetadata")} / ${parsed.provenance.source || ""}${versions ? ` / ${versions}` : ""}`;
+      }
+      if (parsed.warnings?.length) summary[t("metadataWarnings")] = [...new Set(parsed.warnings)].join("\n");
       els.summary.innerHTML = Object.entries(summary)
         .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`)
         .join("");
@@ -2915,13 +2925,26 @@
         const addGraph = (graph) => {
           if (!looksLikeComfyGraphObject(graph)) return false;
           const data = extractComfyPromptData(graph);
+          const compilers = (data.provenance || []).map(({compilerVersion, compilerSource, kind}) => ({compilerVersion, source: compilerSource, kind}));
+          const reconstructed = compilers.some(item => item.kind === "reconstructed");
           candidates.push({ ...data, prompt: pretty(graph), score: 500 + priority, index,
-            provenance: { kind: "saved-graph", source: record.label, encoding: record.encoding || null }, warnings: [] });
+            provenance: { kind: reconstructed ? "reconstructed" : "saved-graph", source: record.label, encoding: record.encoding || null, compilers },
+            warnings: [...(data.warnings || []), ...(reconstructed ? ["Designer text is reconstructed with the pinned compiler; metadata does not verify the compiler used at image generation."] : [])] });
           return true;
         };
         const addWorkflow = (workflow) => {
           if (!workflow || !Array.isArray(workflow.nodes)) return;
           if (!result.workflow) result.workflow = pretty(workflow);
+          if (typeof WorkflowAdapter !== "undefined") {
+            const adapted = WorkflowAdapter.toGraph(workflow);
+            const data = extractComfyPromptData(adapted.graph);
+            if (data.positiveResolved || data.negativeResolved || data.positive || data.negative || data.settings || data.warnings.length) {
+              const compilers = (data.provenance || []).map(({compilerVersion, compilerSource, kind}) => ({compilerVersion, source: compilerSource, kind}));
+              candidates.push({ ...data, score: (data.positiveResolved || data.positive || data.negative ? 300 : 200) + priority, index,
+                provenance: { kind: "workflow-reconstructed", source: record.label, compilers },
+                warnings: [...adapted.warnings, ...data.warnings, "Workflow reconstruction describes saved state, not a verified snapshot of generated prompt output."] });
+            } else result.warnings.push(...adapted.warnings);
+          }
           if (looksLikeKrea2WorkflowObject(workflow)) {
             const data = extractKrea2PromptData(workflow);
             candidates.push({ ...data, score: 250 + priority, index,
@@ -3370,13 +3393,28 @@
       return resolveComfyPromptNode(graph, graph?.[ref.nodeId], ref.outputSlot, polarity, nextSeen);
     }
 
+    function resolveComfyDesignerOutput(graph, node, outputSlot, seen = new Set()) {
+      const inputs = { ...(node.inputs || {}) };
+      const scalarMemo = seen.scalarMemo || (seen.scalarMemo = new Map());
+      for (const name of ["state_json", "use_layout_image", "style"]) {
+        if (!parseComfyReference(inputs[name])) continue;
+        const path = new Set(seen);
+        path.scalarMemo = scalarMemo;
+        const value = resolveComfyScalarValue(graph, inputs[name], path);
+        if (value != null) inputs[name] = value;
+        // Unresolved links remain links so the typed compiler rejects them.
+      }
+      return DesignerAdapters.resolve({ ...node, inputs }, outputSlot);
+    }
+
     function resolveComfyPromptNode(graph, node, outputSlot, polarity, seen) {
       if (!node || typeof node !== "object") return { resolved: false, text: "" };
       const inputs = node.inputs || {};
       const classType = String(node.class_type || "");
 
       if (typeof DesignerAdapters !== "undefined" && DesignerAdapters.supports(node)) {
-        const designer = DesignerAdapters.resolve(node, outputSlot);
+        const designer = resolveComfyDesignerOutput(graph, node, outputSlot, seen);
+        if (designer?.resolved && typeof designer.value !== "string") return { resolved: false, text: "", warnings: ["Selected Designer output is not a text output."] };
         if (designer) return designer;
       }
 
@@ -3395,18 +3433,9 @@
         return resolveComfyInputText(graph, inputs[inputName], polarity, seen);
       }
 
-      if (polarity === "negative" && hasNegativePrompt) {
-        const resolved = resolveComfyInputText(graph, inputs.negative_prompt, polarity, seen);
-        if (resolved.resolved) return resolved;
-      }
-      if (polarity === "positive" && hasPrompt) {
-        const resolved = resolveComfyInputText(graph, inputs.prompt, polarity, seen);
-        if (resolved.resolved) return resolved;
-      }
-      if (Object.prototype.hasOwnProperty.call(inputs, "text")) {
-        const resolved = resolveComfyInputText(graph, inputs.text, polarity, seen);
-        if (resolved.resolved) return resolved;
-      }
+      if (polarity === "negative" && hasNegativePrompt) return resolveComfyInputText(graph, inputs.negative_prompt, polarity, seen);
+      if (polarity === "positive" && hasPrompt) return resolveComfyInputText(graph, inputs.prompt, polarity, seen);
+      if (Object.prototype.hasOwnProperty.call(inputs, "text")) return resolveComfyInputText(graph, inputs.text, polarity, seen);
 
       const candidates = polarity === "negative"
         ? ["negative", "prompt", "value", "string"]
@@ -3480,48 +3509,54 @@
       const ref = parseComfyReference(value);
       if (!ref) return null;
       const marker = `${ref.nodeId}:${ref.outputSlot}`;
-      if (seen.has(marker) || seen.size >= 256) return null;
+      const memo = seen.scalarMemo || (seen.scalarMemo = new Map());
+      if (memo.has(marker)) return memo.get(marker);
+      if (seen.has(marker) || seen.size >= 256 || memo.size >= 10000) return null;
       seen.add(marker);
       const nextSeen = seen;
 
-      const node = graph?.[ref.nodeId];
-      if (!node || typeof node !== "object") return null;
-      const inputs = node.inputs || {};
-      const classType = String(node.class_type || "");
-
-      if (classType === "ComfySwitchNode") {
-        const selected = resolveComfyScalarValue(graph, inputs.switch, nextSeen);
-        return selected == null ? null : resolveComfyScalarValue(graph, comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false, nextSeen);
-      }
-
-      if (typeof DesignerAdapters !== "undefined" && DesignerAdapters.supports(node)) {
-        const designer = DesignerAdapters.resolve(node, ref.outputSlot);
-        if (designer?.resolved && isScalarValue(designer.value)) return designer.value;
-        if (designer) return null;
-      }
-
-      if (classType === "ResolutionSelector") {
-        const aspect = String(inputs.aspect_ratio || "");
-        const match = aspect.match(/(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/);
-        const megapixels = Number(inputs.megapixels);
-        const multiple = Math.max(1, Number(inputs.multiple) || 1);
-        if (match && Number.isFinite(megapixels) && megapixels > 0) {
-          const ratio = Number(match[1]) / Number(match[2]);
-          const pixels = megapixels * 1024 * 1024;
-          const rawWidth = Math.sqrt(pixels * ratio);
-          const rawHeight = Math.sqrt(pixels / ratio);
-          const width = Math.max(multiple, Math.round(rawWidth / multiple) * multiple);
-          const height = Math.max(multiple, Math.round(rawHeight / multiple) * multiple);
-          return ref.outputSlot === 1 ? height : width;
+      const result = (() => {
+        const node = graph?.[ref.nodeId];
+        if (!node || typeof node !== "object") return null;
+        const inputs = node.inputs || {};
+        const classType = String(node.class_type || "");
+  
+        if (classType === "ComfySwitchNode") {
+          const selected = resolveComfyScalarValue(graph, inputs.switch, nextSeen);
+          return selected == null ? null : resolveComfyScalarValue(graph, comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false, nextSeen);
         }
-      }
-
-      for (const inputName of ["value", "width", "height", "int", "number"]) {
-        if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
-        const resolved = resolveComfyScalarValue(graph, inputs[inputName], nextSeen);
-        if (resolved != null) return resolved;
-      }
-      return null;
+  
+        if (typeof DesignerAdapters !== "undefined" && DesignerAdapters.supports(node)) {
+          const designer = resolveComfyDesignerOutput(graph, node, ref.outputSlot, nextSeen);
+          if (designer?.resolved && isScalarValue(designer.value)) return designer.value;
+          if (designer) return null;
+        }
+  
+        if (classType === "ResolutionSelector") {
+          const aspect = String(inputs.aspect_ratio || "");
+          const match = aspect.match(/(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/);
+          const megapixels = Number(inputs.megapixels);
+          const multiple = Math.max(1, Number(inputs.multiple) || 1);
+          if (match && Number.isFinite(megapixels) && megapixels > 0) {
+            const ratio = Number(match[1]) / Number(match[2]);
+            const pixels = megapixels * 1024 * 1024;
+            const rawWidth = Math.sqrt(pixels * ratio);
+            const rawHeight = Math.sqrt(pixels / ratio);
+            const width = Math.max(multiple, Math.round(rawWidth / multiple) * multiple);
+            const height = Math.max(multiple, Math.round(rawHeight / multiple) * multiple);
+            return ref.outputSlot === 1 ? height : width;
+          }
+        }
+  
+        for (const inputName of ["value", "width", "height", "int", "number"]) {
+          if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
+          const resolved = resolveComfyScalarValue(graph, inputs[inputName], nextSeen);
+          if (resolved != null) return resolved;
+        }
+        return null;
+      })();
+      memo.set(marker, result);
+      return result;
     }
 
     function comfyModelNameFromSampler(graph, sampler) {

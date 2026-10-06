@@ -7,7 +7,7 @@ function parserContext(overrides = {}) {
   const start = html.indexOf('    function parseMetadata(bytes, file) {');
   const end = html.indexOf('    if (localStorage.getItem("avifPromptViewerThemeDefaultVersion")', start);
   if (start < 0 || end < start) throw new Error('Parser source boundary not found');
-  const context = vm.createContext({ TextDecoder, console, ...overrides });
+  const context = vm.createContext({ TextDecoder, TextEncoder, console, ...overrides });
   for (const file of ['designer_adapters.js', 'workflow_adapter.js']) {
     if (fs.existsSync(path.join(root, file))) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename: file });
   }

@@ -206,3 +206,27 @@ npm run build
 ## 仕様
 
 詳細は [SPEC.md](SPEC.md) を参照してください。
+
+## 解析修正と Designer 対応
+
+メタデータの採用元を統一し、文字化け、有効でない Switch 分岐の混入、
+JSON の解析前切り詰めを修正しました。古いフォルダ読込や Civitai 照合は
+新しい操作で取り消され、手動編集は言語変更・整形後も維持されます。
+フォルダ表示の解析キャッシュは 32 件・8 MiB を上限とし、サムネイルを遅延読込します。
+
+H3 旧版 / Reference と Qwen Image 2.1 Character Sheet Designer の保存状態
+`state_json` から、固定した公式コンパイラー版に基づいて本文を再構築できます。
+公式サブグラフ、H3 の BasicGuider → SamplerCustomAdvanced 経路にも対応します。
+Summary に「再構築」とコンパイラー版を表示します。生成時に実行された版が不明な場合、
+実際の出力との完全一致を保証するものではありません。メタデータのない画像からは復元できません。
+
+HTML を単体で開く場合も、同じフォルダに `designer_adapters.js` と
+`workflow_adapter.js` を置いてください。
+詳細は [Designer の対応範囲](docs/designer-compatibility.md) と
+[ワークフロー解析](docs/workflow-adapter.md) を参照してください。
+
+開発時は `npm run check`、`npm test`、`npm run test:browser` を利用できます。
+`DESIGNER_EXHAUSTIVE=1` を指定したテストは、Python 3 で公式実装との
+1,339 ケース・4,017 出力の比較も実行します。
+main の CI は回帰テスト・Chromium 表示確認・Windows 展開形式ビルドを確認します。
+このビルド確認ではインストーラーやリリースは公開しません。
