@@ -201,3 +201,55 @@ test('UI performance: thumbnail listeners are delegated and selection touches at
   assert.equal(folder.buttons[0].classList.contains('active'), false);
   assert.equal(folder.buttons[5].classList.contains('active'), true);
 });
+
+test('UI: a stale lookup cannot enable controls or replace a newer lookup', async () => {
+  const h = fresh(); await h.api.loadSingleFile(h.file('A.png', { settings: 'Model hash: aaaaaaaa' }));
+  const old = h.api.lookupCivitaiResources();
+  await h.api.loadSingleFile(h.file('B.png', { settings: 'Model hash: bbbbbbbb' }));
+  const current = h.api.lookupCivitaiResources();
+  h.fetchPending[0].resolve(response('OLD')); await old;
+  assert.equal(h.nodes.get('civitaiLookup').disabled, true);
+  h.api.setLanguage('ja');
+  assert.equal(h.nodes.get('civitaiLookup').disabled, true);
+  h.fetchPending[1].resolve(response('CURRENT')); await current;
+  assert.match(h.nodes.get('civitaiResources').innerHTML, /CURRENT/);
+  h.api.setLanguage('de'); assert.match(h.nodes.get('civitaiResources').innerHTML, /CURRENT/);
+});
+
+test('UI: missing placeholders localize while formatting options preserve an editable source', async () => {
+  const h = fresh(); await h.api.loadSingleFile(h.file('A.png', { positive: '' }));
+  const missing = h.nodes.get('positiveText').textContent;
+  h.api.setLanguage('ja'); assert.notEqual(h.nodes.get('positiveText').textContent, missing);
+  h.nodes.get('positiveText').textContent = 'my_tag,my_tag'; await h.nodes.get('formatPrompt').click();
+  assert.equal(h.nodes.get('positiveText').textContent, 'my tag');
+  h.nodes.get('removeUnderscores').checked = false; await h.nodes.get('removeUnderscores').dispatch('change');
+  assert.equal(h.nodes.get('positiveText').textContent, 'my_tag');
+  h.nodes.get('removeDuplicates').checked = false; await h.nodes.get('removeDuplicates').dispatch('change');
+  assert.equal(h.nodes.get('positiveText').textContent, 'my_tag, my_tag');
+});
+
+test('UI: failed reads recover and stale read failures leave the newer view alone', async () => {
+  const h = fresh(); const pending = deferred();
+  const old = h.api.loadSingleFile(h.file('OLD.png', { pending }));
+  await h.api.loadSingleFile(h.file('NEW.png'));
+  const status = h.nodes.get('status').textContent;
+  pending.reject(new Error('unreadable')); await old;
+  assert.equal(h.nodes.get('status').textContent, status);
+  const bad = h.file('BAD.png'); bad.arrayBuffer = async () => { throw new Error('unreadable'); };
+  await h.api.loadSingleFile(bad); assert.match(h.nodes.get('status').textContent, /could not read/i);
+  await h.api.loadSingleFile(h.file('RECOVERED.png')); assert.equal(h.api.state().lastFile, 'RECOVERED.png');
+});
+
+test('UI: a stopped slideshow callback cannot resume navigation', async () => {
+  const h = fresh(); h.api.loadFolderFiles([h.file('A.png'), h.file('B.png')]); await h.api.loadFolderIndex(0);
+  h.api.startSlideshow(); const staleTick = [...h.intervals.values()][0].fn; h.api.stopSlideshow();
+  staleTick(); await flush(); assert.deepEqual(h.stats.reads, ['A.png']);
+});
+
+test('UI: a new file resets edit state without changing canonical parsed text', async () => {
+  const h = fresh(); const a = h.file('A.png'), b = h.file('B.png'); h.api.loadFolderFiles([a, b]);
+  await h.api.loadFolderIndex(0); await h.nodes.get('editText').click(); h.nodes.get('positiveText').textContent = 'MANUAL';
+  await h.nodes.get('formatPrompt').click(); await h.api.loadFolderIndex(1); await h.api.loadFolderIndex(0);
+  assert.equal(h.nodes.get('positiveText').textContent, 'A.png');
+  assert.equal(h.nodes.get('positiveText').getAttribute('contenteditable'), 'false');
+});

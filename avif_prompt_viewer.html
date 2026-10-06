@@ -1428,6 +1428,15 @@
     let slideshowTimer = 0;
     let previewObjectUrl = "";
     let loadGeneration = 0;
+    let selectionGeneration = 0;
+    let loadBusy = false;
+    let slideshowGeneration = 0;
+    let editableText = null;
+    let renderedText = null;
+    let civitaiGeneration = 0;
+    let civitaiController = null;
+    let civitaiResetTimer = 0;
+    let civitaiResults = null;
 
     const i18n = {
       ja: {
@@ -1448,6 +1457,7 @@
         statusEmpty: "画像を選択してください。",
         statusGood: "メタデータ候補を検出しました。",
         statusWarn: "プロンプトらしいメタデータは見つかりませんでした。",
+        loadFailed: "画像を読み込めませんでした。もう一度お試しください。",
         copyAll: "すべてコピー",
         copy: "コピー",
         copied: "コピー済み",
@@ -1500,6 +1510,7 @@
         statusEmpty: "Choose an image.",
         statusGood: "Metadata candidates found.",
         statusWarn: "No prompt-like metadata found.",
+        loadFailed: "Could not read the image. Please try again.",
         copyAll: "COPY ALL",
         copy: "COPY",
         copied: "COPIED",
@@ -1974,8 +1985,15 @@
     window.addEventListener("drop", async (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const files = await getDroppedImageFiles(event.dataTransfer);
-      await handleDroppedFiles(files);
+      stopSlideshow();
+      const generation = invalidateSelection();
+      const isCurrent = () => generation === selectionGeneration;
+      try {
+        const files = await getDroppedImageFiles(event.dataTransfer, isCurrent);
+        if (isCurrent()) await handleDroppedFiles(files);
+      } catch {
+        if (isCurrent()) showLoadError();
+      }
     });
 
     document.querySelectorAll("[data-copy-target]").forEach((button) => {
@@ -2032,13 +2050,16 @@
       els.input.value = "";
       clearFolderList();
       els.preview.removeAttribute("src");
-      els.lightboxImage.removeAttribute("src");
+      closeLightbox();
       document.body.classList.remove("has-file");
       setEditMode(false);
       formatApplied = false;
       lastParsed = null;
       lastFile = null;
       lastBytes = null;
+      civitaiResults = null;
+      editableText = null;
+      renderedText = null;
       els.fileInfo.textContent = currentLang === "ja" ? "未選択" : "No file selected";
       els.status.className = "status";
       els.status.textContent = t("statusEmpty");
@@ -2050,8 +2071,21 @@
       els.civitaiResources.textContent = t("noHashes");
     }
 
-    function clearFolderList() {
+    function invalidateSelection() {
+      selectionGeneration += 1;
       loadGeneration += 1;
+      loadBusy = false;
+      cancelCivitaiLookup();
+      return selectionGeneration;
+    }
+
+    function showLoadError() {
+      els.status.className = "status warn";
+      els.status.textContent = t("loadFailed");
+    }
+
+    function clearFolderList() {
+      invalidateSelection();
       stopSlideshow();
       folderThumbUrls.forEach((url) => URL.revokeObjectURL(url));
       folderThumbUrls = [];
@@ -2076,13 +2110,14 @@
       if (!files.length) return;
       if (files.length > 1) {
         loadFolderFiles(files);
-        loadFolderIndex(0);
+        await loadFolderIndex(0);
         return;
       }
       await loadSingleFile(files[0]);
     }
 
-    async function getDroppedImageFiles(dataTransfer) {
+    async function getDroppedImageFiles(dataTransfer, isCurrent = () => true) {
+      if (!dataTransfer || !isCurrent()) return [];
       const items = Array.from(dataTransfer.items || []);
       const entries = items
         .map((item) => item.webkitGetAsEntry?.())
@@ -2091,17 +2126,20 @@
       if (entries.length) {
         const files = [];
         for (const entry of entries) {
-          files.push(...await readDroppedEntry(entry));
+          if (!isCurrent()) return [];
+          files.push(...await readDroppedEntry(entry, isCurrent));
         }
-        return files.filter(isSupportedImageFile);
+        return isCurrent() ? files.filter(isSupportedImageFile) : [];
       }
 
       return Array.from(dataTransfer.files || []).filter(isSupportedImageFile);
     }
 
-    async function readDroppedEntry(entry) {
+    async function readDroppedEntry(entry, isCurrent = () => true) {
+      if (!isCurrent()) return [];
       if (entry.isFile) {
-        return [await new Promise((resolve, reject) => entry.file(resolve, reject))];
+        const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+        return isCurrent() ? [file] : [];
       }
       if (!entry.isDirectory) return [];
 
@@ -2109,13 +2147,15 @@
       const entries = [];
       while (true) {
         const batch = await new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+        if (!isCurrent()) return [];
         if (!batch.length) break;
         entries.push(...batch);
       }
 
       const files = [];
       for (const child of entries) {
-        files.push(...await readDroppedEntry(child));
+        if (!isCurrent()) return [];
+        files.push(...await readDroppedEntry(child, isCurrent));
       }
       return files;
     }
@@ -2162,12 +2202,17 @@
       updateFolderNav();
     }
 
-    function loadFolderIndex(index) {
-      if (!folderFiles.length) return;
-      const nextIndex = Math.min(folderFiles.length - 1, Math.max(0, index));
+    async function loadFolderIndex(index) {
+      if (!folderFiles.length) return false;
+      const files = folderFiles;
+      const nextIndex = Math.min(files.length - 1, Math.max(0, index));
+      const pending = loadFile(files[nextIndex]);
+      const generation = loadGeneration;
+      const committed = await pending;
+      if (!committed || generation !== loadGeneration || files !== folderFiles) return false;
       folderIndex = nextIndex;
       updateFolderNav();
-      loadFile(folderFiles[nextIndex]);
+      return true;
     }
 
     function updateFolderNav() {
@@ -2190,18 +2235,21 @@
     function startSlideshow() {
       stopSlideshow();
       if (!folderFiles.length) return;
-      if (folderIndex < 0) loadFolderIndex(0);
+      if (folderIndex < 0 && !loadBusy) loadFolderIndex(0);
       const seconds = Math.min(30, Math.max(1, Number(els.slideshowInterval.value) || 3));
       els.slideshowInterval.value = String(seconds);
       els.slideshowToggle.textContent = t("stopSlideshow");
       els.slideshowToggle.classList.add("done");
+      const generation = slideshowGeneration;
       slideshowTimer = window.setInterval(() => {
+        if (generation !== slideshowGeneration || loadBusy) return;
         const next = folderIndex >= folderFiles.length - 1 ? 0 : folderIndex + 1;
         loadFolderIndex(next);
       }, seconds * 1000);
     }
 
     function stopSlideshow() {
+      slideshowGeneration += 1;
       if (slideshowTimer) {
         window.clearInterval(slideshowTimer);
         slideshowTimer = 0;
@@ -2249,33 +2297,45 @@
     }
 
     async function loadFile(file) {
-      const generation = ++loadGeneration;
-      formatApplied = false;
-      const buffer = await file.arrayBuffer();
-      if (generation !== loadGeneration) return;
+      invalidateSelection();
+      const generation = loadGeneration;
+      loadBusy = true;
+      try {
+        const buffer = await file.arrayBuffer();
+        if (generation !== loadGeneration) return false;
+        const bytes = new Uint8Array(buffer);
+        const parsed = parseMetadata(bytes, file);
+        if (generation !== loadGeneration) return false;
 
-      const bytes = new Uint8Array(buffer);
-      const url = URL.createObjectURL(file);
-      if (generation !== loadGeneration) {
-        URL.revokeObjectURL(url);
-        return;
+        const url = URL.createObjectURL(file);
+        const previousUrl = previewObjectUrl;
+        previewObjectUrl = url;
+        els.preview.src = url;
+        if (els.lightbox.classList.contains("open")) els.lightboxImage.src = url;
+        if (previousUrl) URL.revokeObjectURL(previousUrl);
+        document.body.classList.add("has-file");
+        els.fileInfo.textContent = `${file.name} / ${formatBytes(file.size)} / ${file.type || detectType(bytes)}`;
+
+        formatApplied = false;
+        lastParsed = parsed;
+        lastFile = file;
+        lastBytes = bytes;
+        editableText = { positive: parsed.positive || null, negative: parsed.negative || null, settings: parsed.settings || null };
+        renderedText = null;
+        civitaiResults = null;
+        setEditMode(false);
+        render(parsed, file, bytes);
+        return true;
+      } catch {
+        if (generation === loadGeneration) showLoadError();
+        return false;
+      } finally {
+        if (generation === loadGeneration) loadBusy = false;
       }
-
-      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
-      previewObjectUrl = url;
-      els.preview.src = url;
-      document.body.classList.add("has-file");
-      els.fileInfo.textContent = `${file.name} / ${formatBytes(file.size)} / ${file.type || detectType(bytes)}`;
-
-      const parsed = parseMetadata(bytes, file);
-      if (generation !== loadGeneration) return;
-      lastParsed = parsed;
-      lastFile = file;
-      lastBytes = bytes;
-      render(parsed, file, bytes);
     }
 
     function openLightbox() {
+      if (!previewObjectUrl) return;
       els.lightboxImage.src = els.preview.src;
       els.lightbox.classList.add("open");
       els.lightbox.setAttribute("aria-hidden", "false");
@@ -2284,6 +2344,7 @@
     function closeLightbox() {
       els.lightbox.classList.remove("open");
       els.lightbox.setAttribute("aria-hidden", "true");
+      els.lightboxImage.removeAttribute("src");
     }
 
     function openAbout() {
@@ -2317,13 +2378,13 @@
         .map(([key, value]) => `<dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`)
         .join("");
 
-      applyPromptFormattingToView();
-      els.settings.textContent = parsed.settings || t("settingsMissing");
-      els.settingsChips.innerHTML = renderSettingsChips(parsed.settings);
-      renderCivitaiCandidates(parsed);
+      renderEditableText();
+      if (civitaiResults) els.civitaiResources.innerHTML = civitaiResults.map(renderCivitaiResult).join("");
+      else renderCivitaiCandidates(parsed);
     }
 
     function setLanguage(lang) {
+      captureEditableText();
       currentLang = resolveLanguage(lang);
       els.languageSelect.value = lang || "auto";
       document.documentElement.lang = currentLang;
@@ -2337,6 +2398,8 @@
         el.setAttribute("aria-label", label);
       });
       if (slideshowTimer) els.slideshowToggle.textContent = t("stopSlideshow");
+      setEditMode(els.positive.getAttribute("contenteditable") === "true");
+      els.civitaiLookup.textContent = t(civitaiController ? "lookupRunning" : civitaiResetTimer ? "lookupDone" : "lookup");
       if (!els.folderPanel.hidden) {
         const count = els.folderList.querySelectorAll(".folder-thumb").length;
         els.folderCount.textContent = t("folderCount").replace("{count}", count);
@@ -2375,16 +2438,30 @@
       return "en";
     }
 
-    function applyPromptFormattingToView() {
-      if (!lastParsed) {
-        els.positive.textContent = t("positiveMissing");
-        els.negative.textContent = t("negativeMissing");
-        return;
+    function captureEditableText() {
+      if (!editableText || !renderedText) return;
+      for (const key of ["positive", "negative", "settings"]) {
+        // Keep empty manual edits distinct from a missing, localized placeholder.
+        if (els[key].textContent !== renderedText[key]) editableText[key] = els[key].textContent;
       }
-      const basePositive = lastParsed.positive || t("positiveMissing");
-      const baseNegative = lastParsed.negative || t("negativeMissing");
-      els.positive.textContent = formatApplied ? formatPromptText(basePositive) : basePositive;
-      els.negative.textContent = formatApplied ? formatPromptText(baseNegative) : baseNegative;
+    }
+
+    function renderEditableText() {
+      if (!editableText) return;
+      renderedText = {};
+      for (const key of ["positive", "negative", "settings"]) {
+        const value = editableText[key];
+        const text = value === null ? t(`${key}Missing`)
+          : formatApplied && key !== "settings" ? formatPromptText(value) : value;
+        els[key].textContent = text;
+        renderedText[key] = text;
+      }
+      els.settingsChips.innerHTML = renderSettingsChips(editableText.settings || "");
+    }
+
+    function applyPromptFormattingToView() {
+      captureEditableText();
+      renderEditableText();
     }
 
     function formatPromptText(text) {
@@ -3517,31 +3594,69 @@
       `).join("");
     }
 
+    function cancelCivitaiLookup() {
+      civitaiGeneration += 1;
+      if (civitaiController) civitaiController.abort();
+      civitaiController = null;
+      if (civitaiResetTimer) clearTimeout(civitaiResetTimer);
+      civitaiResetTimer = 0;
+      els.civitaiLookup.disabled = false;
+      els.civitaiLookup.textContent = t("lookup");
+    }
+
     async function lookupCivitaiResources() {
-      if (!lastParsed) return;
+      if (!lastParsed || loadBusy) return;
+      cancelCivitaiLookup();
       const candidates = extractCivitaiCandidates(lastParsed);
       if (!candidates.length) {
         els.civitaiResources.innerHTML = `<div class="resource-empty">${escapeHtml(t("noHashes"))}</div>`;
         return;
       }
 
+      const generation = civitaiGeneration;
+      const controller = new AbortController();
+      civitaiController = controller;
       els.civitaiLookup.textContent = t("lookupRunning");
       els.civitaiLookup.disabled = true;
-      const results = await Promise.all(candidates.map(async (candidate) => {
-        try {
-          const response = await fetch(`https://civitai.com/api/v1/model-versions/by-hash/${encodeURIComponent(candidate.hash)}`);
-          if (!response.ok) return { candidate, error: t("notFound") };
-          return { candidate, data: await response.json() };
-        } catch {
-          return { candidate, error: t("lookupFailed") };
+      // Race against abort as well as passing the signal: every lookup must settle,
+      // including a slow response body or a transport which does not honor abort.
+      let rejectAborted;
+      const aborted = new Promise((_, reject) => { rejectAborted = reject; });
+      const onAbort = () => rejectAborted(new Error("Lookup cancelled or timed out"));
+      controller.signal.addEventListener("abort", onAbort, { once: true });
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const pending = Promise.all(candidates.map(async (candidate) => {
+          try {
+            const response = await fetch(`https://civitai.com/api/v1/model-versions/by-hash/${encodeURIComponent(candidate.hash)}`, { signal: controller.signal });
+            if (!response.ok) return { candidate, error: t("notFound") };
+            return { candidate, data: await response.json() };
+          } catch {
+            return { candidate, error: t("lookupFailed") };
+          }
+        }));
+        const results = await Promise.race([pending, aborted]);
+        if (generation !== civitaiGeneration) return;
+        civitaiResults = results;
+        els.civitaiResources.innerHTML = results.map(renderCivitaiResult).join("");
+      } catch {
+        if (generation !== civitaiGeneration) return;
+        civitaiResults = candidates.map(candidate => ({ candidate, error: t("lookupFailed") }));
+        els.civitaiResources.innerHTML = civitaiResults.map(renderCivitaiResult).join("");
+      } finally {
+        clearTimeout(timeout);
+        controller.signal.removeEventListener("abort", onAbort);
+        if (generation === civitaiGeneration) {
+          civitaiController = null;
+          els.civitaiLookup.textContent = t("lookupDone");
+          els.civitaiLookup.disabled = false;
+          civitaiResetTimer = setTimeout(() => {
+            if (generation !== civitaiGeneration) return;
+            civitaiResetTimer = 0;
+            els.civitaiLookup.textContent = t("lookup");
+          }, 1200);
         }
-      }));
-      els.civitaiResources.innerHTML = results.map(renderCivitaiResult).join("");
-      els.civitaiLookup.textContent = t("lookupDone");
-      els.civitaiLookup.disabled = false;
-      setTimeout(() => {
-        els.civitaiLookup.textContent = t("lookup");
-      }, 1200);
+      }
     }
 
     function renderCivitaiResult(result) {
