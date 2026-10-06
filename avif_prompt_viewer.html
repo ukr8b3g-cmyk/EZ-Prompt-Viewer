@@ -2629,6 +2629,17 @@
       return { ...normalized, records, detected };
     }
 
+    function metadataPayload(bytes, start, end, records, label) {
+      const length = end - start;
+      const used = records.metadataBytes || 0;
+      if (length > 8 * 1024 * 1024 || used + length > 16 * 1024 * 1024 || records.length >= 128) {
+        if (!records.some(record => record.warning === "Structured metadata exceeds the per-record or total decode limit.")) records.push({ label, value: "", warning: "Structured metadata exceeds the per-record or total decode limit." });
+        return null;
+      }
+      records.metadataBytes = used + length;
+      return bytes.subarray(start, end);
+    }
+
     function parsePng(bytes, records) {
       if (!startsWith(bytes, [0x89, 0x50, 0x4e, 0x47])) return;
       let offset = 8;
@@ -2641,12 +2652,14 @@
         if (type === "tEXt") {
           const nul = bytes.indexOf(0, start);
           if (nul > start && nul < end) {
-            records.push({ label: `PNG ${ascii(bytes, start, nul - start)}`, value: decodeMetadataText(bytes.subarray(nul + 1, end)) });
+            const label = `PNG ${ascii(bytes, start, nul - start)}`;
+            const payload = metadataPayload(bytes, nul + 1, end, records, label);
+            if (payload) records.push({ label, value: decodeMetadataText(payload) });
           }
         }
         if (type === "iTXt") {
-          const text = decoder.decode(bytes.slice(start, end));
-          records.push({ label: "PNG iTXt", value: text.replace(/\0/g, "\n") });
+          const payload = metadataPayload(bytes, start, end, records, "PNG iTXt");
+          if (payload) records.push({ label: "PNG iTXt", value: decoder.decode(payload).replace(/\0/g, "\n") });
         }
         offset = end + 4;
       }
@@ -2660,8 +2673,9 @@
         const length = readU16(bytes, offset + 2);
         const start = offset + 4;
         const end = offset + 2 + length;
-        if (end > bytes.length) break;
-        const segment = bytes.slice(start, end);
+        if (length < 2 || end > bytes.length) break;
+        const segment = metadataPayload(bytes, start, end, records, "JPEG");
+        if (!segment) { offset = end; continue; }
         const text = decodeMetadataText(segment);
         if (marker === 0xe1 && text.startsWith("Exif")) records.push({ label: "JPEG EXIF", value: text });
         if (marker === 0xe1) addDecodedExifRecords("JPEG EXIF", segment, records);
@@ -2681,8 +2695,11 @@
         const end = start + length;
         if (end > bytes.length) break;
         if (type === "EXIF" || type === "XMP ") {
-          records.push({ label: `WEBP ${type.trim()}`, value: decodeMetadataText(bytes.subarray(start, end)) });
-          if (type === "EXIF") addDecodedExifRecords("WEBP EXIF", bytes.slice(start, end), records);
+          const payload = metadataPayload(bytes, start, end, records, `WEBP ${type.trim()}`);
+          if (payload) {
+            records.push({ label: `WEBP ${type.trim()}`, value: decodeMetadataText(payload) });
+            if (type === "EXIF") addDecodedExifRecords("WEBP EXIF", payload, records);
+          }
         }
         offset = end + (length % 2);
       }
@@ -2719,7 +2736,8 @@
       const userComment = findIfdTag(bytes, exifIfdOffset, 0x9286, read16, read32, exifStart);
       if (!userComment) return "";
 
-      const raw = bytes.slice(userComment.offset, userComment.offset + userComment.count);
+      if (userComment.offset < 0 || userComment.offset + userComment.count > bytes.length || userComment.count > 8 * 1024 * 1024) return "";
+      const raw = bytes.subarray(userComment.offset, userComment.offset + userComment.count);
       return decodeExifUserComment(raw, little);
     }
 
@@ -2787,7 +2805,8 @@
     function parseIsoBmff(bytes, records) {
       const limited = walkBoxes(bytes, 0, bytes.length, "", (box) => {
         if (["Exif", "mime", "xml ", "uuid", "mdat", "ilst", "data"].includes(box.type)) {
-          const payload = bytes.slice(box.dataStart, box.end);
+          const payload = metadataPayload(bytes, box.dataStart, box.end, records, `ISOBMFF ${box.type}`);
+          if (!payload) return;
           const text = decodeMetadataText(payload);
           if (looksUseful(text)) records.push({ label: `ISOBMFF ${box.path}/${box.type}`, value: cleanMetadataText(text) });
         }
@@ -2828,6 +2847,7 @@
       const limit = 8 * 1024 * 1024;
       const slices = bytes.length <= limit * 2 ? [bytes] : [bytes.subarray(0, limit), bytes.subarray(bytes.length - limit)];
       const known = new Set(records.map(record => typeof record.value === "string" ? record.value : JSON.stringify(record.value)));
+      let candidateCharacters = [...known].reduce((sum, value) => sum + (value?.length || 0), 0);
       for (const slice of slices) {
         const decoders = [["utf-8", decoder], ["latin1", latin1Decoder], ["utf-16le", utf16leDecoder], ["utf-16be", utf16beDecoder]];
         const scanned = new Set();
@@ -2842,6 +2862,11 @@
           ];
           for (const candidate of candidates) {
             if (!known.has(candidate.value)) {
+              if (candidateCharacters + candidate.value.length > 16 * 1024 * 1024 || records.length >= 128) {
+                if (!records.some(record => record.label === "Scan limits")) records.push({ label: "Scan limits", value: "", warning: "Fallback candidate metadata reached its total size or record-count limit." });
+                continue;
+              }
+              candidateCharacters += candidate.value.length;
               known.add(candidate.value);
               records.push({ ...candidate, encoding });
             }

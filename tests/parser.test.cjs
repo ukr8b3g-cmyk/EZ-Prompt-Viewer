@@ -106,3 +106,8 @@ test('deep ISO containers terminate with an explicit limit warning', () => {
   const c=parserContext();let bytes=Buffer.alloc(0);for(let i=0;i<5000;i++){const h=Buffer.alloc(8);h.writeUInt32BE(bytes.length+8);h.write('moov',4);bytes=Buffer.concat([h,bytes]);}
   const records=[];c.parseIsoBmff(bytes,records);assert.ok(records.some(r=>r.warning));
 });
+test('oversized structured chunks are not decoded before size checks', () => {
+  let largest=0;class Decoder { constructor(label,options) {this.decoder=new TextDecoder(label,options)}decode(bytes){largest=Math.max(largest,bytes.length);return this.decoder.decode(bytes)}}
+  const c=parserContext({TextDecoder:Decoder});const bytes=Buffer.alloc(18*1024*1024+8);bytes.writeUInt32BE(bytes.length);bytes.write('mdat',4);const records=[];
+  c.parseIsoBmff(bytes,records);assert.equal(largest,0);assert.ok(records.some(r=>r.warning));
+});
