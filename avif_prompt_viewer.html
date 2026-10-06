@@ -3104,7 +3104,7 @@
 
     function extractComfyPromptData(graph) {
       const fallbackSettings = {};
-      const samplerEntries = Object.entries(graph || {}).filter(([, node]) => ["KSampler", "KSamplerAdvanced"].includes(String(node?.class_type || "")));
+      const samplerEntries = Object.entries(graph || {}).filter(([, node]) => ["KSampler", "KSamplerAdvanced", "SamplerCustom", "SamplerCustomAdvanced"].includes(String(node?.class_type || "")));
       const activeGraph = samplerEntries.length ? collectComfyActiveGraph(graph, samplerEntries.map(([id]) => [id, 0])) : graph;
       for (const node of Object.values(activeGraph || {})) {
         if (!node || typeof node !== "object") continue;
@@ -3128,11 +3128,17 @@
       let positiveResolved = false;
       let negativeResolved = false;
 
+      const promptProvenance = [];
+      const warnings = [];
       for (const [, sampler] of samplerEntries) {
-        const inputs = sampler.inputs || {};
+        const inputs = comfySamplerInputs(graph, sampler);
         const positive = resolveComfyPromptReference(graph, inputs.positive, "positive");
         const negative = resolveComfyPromptReference(graph, inputs.negative, "negative");
 
+        for (const resolved of [positive, negative]) {
+          if (resolved.provenance) promptProvenance.push(resolved.provenance);
+          if (resolved.warnings) warnings.push(...resolved.warnings);
+        }
         if (positive.resolved) {
           positiveResolved = true;
           addUniqueComfyText(positives, positive.text);
@@ -3174,11 +3180,11 @@
       }
 
       const [samplerId, sampler] = samplerEntries[0] || [];
-      const samplerInputs = sampler?.inputs || {};
+      const samplerInputs = sampler ? comfySamplerInputs(graph, sampler) : {};
       const encoder = sampler ? findComfyUpstreamNode(
         graph,
         samplerInputs.positive,
-        (node) => ["TextEncodeQwenImage21", "CLIPTextEncode"].includes(String(node.class_type || ""))
+        (node) => ["TextEncodeQwenImage21", "CLIPTextEncode", "MiniMaxH3ReferenceToVideo"].includes(String(node.class_type || ""))
       ) : null;
       const model = sampler ? comfyModelNameFromSampler(graph, sampler) : (fallbackSettings.Model || "");
       const textEncoder = comfyTextEncoderName(graph, encoder);
@@ -3214,7 +3220,18 @@
         settings: Object.entries(settings).map(([key, value]) => `${key}: ${value}`).join(", "),
         positiveResolved,
         negativeResolved,
+        provenance: promptProvenance,
+        warnings,
       };
+    }
+
+    function comfySamplerInputs(graph, sampler) {
+      const inputs = { ...(sampler?.inputs || {}) };
+      if (!inputs.guider) return inputs;
+      const hit = findComfyUpstreamNode(graph, inputs.guider, node => ["BasicGuider", "CFGGuider", "DualCFGGuider"].includes(String(node.class_type || "")));
+      if (!hit) return inputs;
+      const guider = hit.node.inputs || {};
+      return { ...inputs, positive: guider.positive ?? guider.conditioning, negative: guider.negative, model: guider.model, cfg: guider.cfg };
     }
 
     function addUniqueComfyText(target, value) {
@@ -3261,6 +3278,11 @@
       if (!node || typeof node !== "object") return { resolved: false, text: "" };
       const inputs = node.inputs || {};
       const classType = String(node.class_type || "");
+
+      if (typeof DesignerAdapters !== "undefined") {
+        const designer = DesignerAdapters.resolve(node, outputSlot);
+        if (designer) return designer;
+      }
 
       if (/ConditioningZeroOut/i.test(classType)) {
         return { resolved: true, text: "" };
@@ -3376,6 +3398,12 @@
         return selected == null ? null : resolveComfyScalarValue(graph, comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false, nextSeen);
       }
 
+      if (typeof DesignerAdapters !== "undefined") {
+        const designer = DesignerAdapters.resolve(node, ref.outputSlot);
+        if (designer?.resolved && isScalarValue(designer.value)) return designer.value;
+        if (designer) return null;
+      }
+
       if (classType === "ResolutionSelector") {
         const aspect = String(inputs.aspect_ratio || "");
         const match = aspect.match(/(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/);
@@ -3403,7 +3431,7 @@
     function comfyModelNameFromSampler(graph, sampler) {
       const hit = findComfyUpstreamNode(
         graph,
-        sampler?.inputs?.model,
+        comfySamplerInputs(graph, sampler).model,
         (node) => ["UNETLoader", "CheckpointLoaderSimple", "CheckpointLoader"].includes(String(node.class_type || ""))
       );
       if (!hit) return "";
@@ -3496,7 +3524,7 @@
       const hit = findComfyUpstreamNode(
         graph,
         latent,
-        (node) => String(node.class_type || "") === "EmptyLatentImage"
+        (node) => ["EmptyLatentImage", "EmptySD3LatentImage", "MiniMaxH3ReferenceToVideo"].includes(String(node.class_type || ""))
       );
       if (!hit) return "";
       const width = resolveComfyScalarValue(graph, hit.node.inputs?.width);
