@@ -3520,18 +3520,18 @@
         if (!node || typeof node !== "object") return null;
         const inputs = node.inputs || {};
         const classType = String(node.class_type || "");
-  
+
         if (classType === "ComfySwitchNode") {
           const selected = resolveComfyScalarValue(graph, inputs.switch, nextSeen);
           return selected == null ? null : resolveComfyScalarValue(graph, comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false, nextSeen);
         }
-  
+
         if (typeof DesignerAdapters !== "undefined" && DesignerAdapters.supports(node)) {
           const designer = resolveComfyDesignerOutput(graph, node, ref.outputSlot, nextSeen);
           if (designer?.resolved && isScalarValue(designer.value)) return designer.value;
           if (designer) return null;
         }
-  
+
         if (classType === "ResolutionSelector") {
           const aspect = String(inputs.aspect_ratio || "");
           const match = aspect.match(/(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/);
@@ -3547,7 +3547,7 @@
             return ref.outputSlot === 1 ? height : width;
           }
         }
-  
+
         for (const inputName of ["value", "width", "height", "int", "number"]) {
           if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
           const resolved = resolveComfyScalarValue(graph, inputs[inputName], nextSeen);

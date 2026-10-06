@@ -1,0 +1,3 @@
+# Preserve byte-exact upstream differential fixtures, including original EOF blanks.
+tests/fixtures/designer/upstream/** whitespace=-blank-at-eof
+tests/fixtures/workflows/** whitespace=-blank-at-eof
