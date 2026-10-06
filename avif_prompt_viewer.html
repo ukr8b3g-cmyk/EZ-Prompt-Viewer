@@ -2704,88 +2704,79 @@
       }
     }
 
+    // Parse complete bounded metadata first; display trimming must not corrupt JSON.
+    function metadataText(value) {
+      const text = typeof value === "string" ? value : JSON.stringify(value);
+      return typeof text === "string" && text.length <= 8 * 1024 * 1024 ? text.trim() : "";
+    }
+
+    function recordPriority(record) {
+      const label = String(record.label || "");
+      if (/^Scan\b/i.test(label)) return 0;
+      if (isDecodedUserCommentRecord(record)) return 40;
+      if (/decoded/i.test(label)) return 10;
+      if (/^(PNG|JPEG Comment)/i.test(label)) return 50;
+      return 20;
+    }
+
     function normalizeRecords(records) {
-      let prompt = "";
-      let workflow = "";
-      let a1111 = "";
-      let positive = "";
-      let negative = "";
-      let settings = "";
-      let xmp = "";
-      let exif = "";
-      let comfyPositiveResolved = false;
-      let comfyNegativeResolved = false;
-      let krea2StructuredPositive = false;
-      const hasDecodedA1111UserComment = records.some((record) =>
-        isDecodedUserCommentRecord(record) &&
-        /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(
-          trimBinaryText(typeof record.value === "string" ? record.value : JSON.stringify(record.value))
-        )
-      );
-
-      for (const record of records) {
-        const value = typeof record.value === "string" ? record.value : JSON.stringify(record.value);
-        const clean = trimBinaryText(value);
-        const parsed = tryJson(clean);
-
-        if (/prompt/i.test(record.label) && !prompt) prompt = pretty(parsed || clean);
-        if (/workflow/i.test(record.label) && !workflow) workflow = pretty(parsed || clean);
-        if (/xmp/i.test(record.label) && !xmp) xmp = clean;
-        if (/exif/i.test(record.label) && !exif) exif = clean;
-
-        if (parsed && parsed.prompt && !prompt) prompt = pretty(parsed.prompt);
-        if (parsed && parsed.workflow && !workflow) workflow = pretty(parsed.workflow);
-        if (parsed && looksLikeKrea2WorkflowObject(parsed)) {
-          const krea2 = extractKrea2PromptData(parsed);
-          if (krea2.positive) {
-            positive = krea2.positive;
-            krea2StructuredPositive = true;
-          }
-          if (krea2.negative) negative = negative || krea2.negative;
-          if (krea2.settings) settings = settings || krea2.settings;
+      const result = { prompt: "", workflow: "", a1111: "", positive: "", negative: "", settings: "", xmp: "", exif: "", provenance: null, warnings: [] };
+      const candidates = [];
+      const ordered = records.map((record, index) => ({record, index, priority: recordPriority(record)}))
+        .sort((a, b) => b.priority - a.priority || a.index - b.index);
+      const hasDecodedA1111 = records.some(record => isDecodedUserCommentRecord(record) && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:)/i.test(metadataText(record.value)));
+      for (const {record, index, priority} of ordered) {
+        const raw = metadataText(record.value);
+        if (!raw) {
+          if (record.value) result.warnings.push(`Metadata record exceeds the 8 MiB parse limit: ${record.label}`);
+          continue;
         }
-        if (parsed && looksLikeComfyGraphObject(parsed)) {
-          const comfy = extractComfyPromptData(parsed);
-          if (comfy.positiveResolved) {
-            if (!krea2StructuredPositive) positive = comfy.positive;
-            comfyPositiveResolved = true;
-          } else if (!positive || looksLikeBinaryJunk(positive)) {
-            positive = comfy.positive || positive;
+        const parsed = tryJson(raw);
+        const clean = trimBinaryText(raw);
+        if (/xmp/i.test(record.label) && !result.xmp) result.xmp = clean;
+        if (/exif/i.test(record.label) && !result.exif) result.exif = clean;
+        const addGraph = (graph) => {
+          if (!looksLikeComfyGraphObject(graph)) return false;
+          const data = extractComfyPromptData(graph);
+          candidates.push({ ...data, prompt: pretty(graph), score: 500 + priority, index,
+            provenance: { kind: "saved-graph", source: record.label, encoding: record.encoding || null }, warnings: [] });
+          return true;
+        };
+        const addWorkflow = (workflow) => {
+          if (!workflow || !Array.isArray(workflow.nodes)) return;
+          if (!result.workflow) result.workflow = pretty(workflow);
+          if (looksLikeKrea2WorkflowObject(workflow)) {
+            const data = extractKrea2PromptData(workflow);
+            candidates.push({ ...data, score: 250 + priority, index,
+              provenance: { kind: "reconstructed", source: record.label, compiler: "Krea2 workflow adapter" }, warnings: [] });
           }
-          if (comfy.negativeResolved) {
-            negative = comfy.negative;
-            comfyNegativeResolved = true;
-          } else if (!negative || looksLikeBinaryJunk(negative)) {
-            negative = comfy.negative || negative;
-          }
-          if (!settings || hasComfyReferenceValue(settings)) settings = comfy.settings || settings;
-        }
-        const skipRawExifA1111 =
-          hasDecodedA1111UserComment && isRawExifFallbackRecord(record);
-        if (!a1111 && !skipRawExifA1111 && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(clean)) {
-          const isComfyGraphRecord = parsed && looksLikeComfyGraphObject(parsed);
-          const hasNegativePromptMarker = /\bNegative prompt:\s*/i.test(clean);
-          if (!isComfyGraphRecord || hasNegativePromptMarker) {
-            a1111 = clean;
-            const split = splitA1111(clean, {
-              preservePositiveStart: isTrustedA1111TextRecord(record),
-            });
-            const canUseA1111Positive = hasNegativePromptMarker || !isComfyGraphRecord;
-            if (!comfyPositiveResolved && canUseA1111Positive && !looksLikeBinaryJunk(split.positive)) {
-              positive = positive || split.positive;
-            }
-            if (!comfyNegativeResolved) negative = negative || split.negative;
-            settings = settings || split.settings;
-          }
+        };
+        const graphFound = addGraph(parsed) || addGraph(parsed?.prompt);
+        addWorkflow(parsed);
+        if (parsed?.workflow) addWorkflow(parsed.workflow);
+        if (/workflow/i.test(record.label) && !result.workflow) result.workflow = pretty(parsed || clean);
+        if (/prompt/i.test(record.label) && !result.prompt) result.prompt = pretty(parsed || clean);
+        if (parsed?.prompt && !result.prompt) result.prompt = pretty(parsed.prompt);
+        const skipRawExif = hasDecodedA1111 && isRawExifFallbackRecord(record);
+        if (!graphFound && !skipRawExif && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:|Sampler:|CFG scale:|Seed:)/i.test(raw)) {
+          const trusted = isTrustedA1111TextRecord(record);
+          const split = splitA1111(raw, { preservePositiveStart: trusted });
+          if (!trusted && looksLikeBinaryJunk(split.positive)) split.positive = "";
+          candidates.push({ ...split, a1111: clean, score: 400 + priority, index,
+            provenance: { kind: "saved-parameters", source: record.label, encoding: record.encoding || null }, warnings: [] });
         }
       }
-      if (!comfyPositiveResolved && !positive && prompt && /(?:^|[\n\r\x00])(?:Negative prompt:|Steps:)/i.test(prompt)) {
-        const split = splitA1111(prompt);
-        positive = looksLikeBinaryJunk(split.positive) ? positive : split.positive;
-        if (!comfyNegativeResolved) negative = split.negative;
-        settings = settings || split.settings;
+      // A candidate is a complete record, never a field-by-field mixture of images/encodings.
+      candidates.sort((a, b) => b.score - a.score || a.index - b.index);
+      const selected = candidates[0];
+      if (selected) {
+        for (const key of ["positive", "negative", "settings"]) result[key] = selected[key] || "";
+        if (selected.prompt) result.prompt = selected.prompt;
+        if (selected.a1111) result.a1111 = selected.a1111;
+        result.provenance = selected.provenance;
+        result.warnings.push(...selected.warnings);
       }
-      return { prompt, workflow, a1111, positive, negative, settings, xmp, exif };
+      return result;
     }
 
     function isDecodedUserCommentRecord(record) {
@@ -3077,7 +3068,7 @@
         }
       }
 
-      if (!positiveResolved || !negativeResolved) {
+      if (!samplerEntries.length) {
         for (const node of Object.values(graph || {})) {
           if (!node || typeof node !== "object") continue;
           const inputs = node.inputs || {};
@@ -3184,7 +3175,7 @@
       if (!ref) return { resolved: false, text: "" };
 
       const marker = `${ref.nodeId}:${ref.outputSlot}:${polarity}`;
-      if (seen.has(marker)) return { resolved: false, text: "" };
+      if (seen.has(marker) || seen.size >= 256) return { resolved: false, text: "" };
       const nextSeen = new Set(seen);
       nextSeen.add(marker);
 
@@ -3201,11 +3192,7 @@
       }
 
       if (classType === "ComfySwitchNode") {
-        const enabled = comfySwitchEnabled(inputs.switch);
-        const branch = enabled ? inputs.on_true : inputs.on_false;
-        const resolved = resolveComfyInputText(graph, branch, polarity, seen);
-        if (resolved.resolved) return resolved;
-        return resolveComfyInputText(graph, enabled ? inputs.on_false : inputs.on_true, polarity, seen);
+        return resolveComfyInputText(graph, activeComfyInputs(graph, node)[0], polarity, seen);
       }
 
       const hasPrompt = Object.prototype.hasOwnProperty.call(inputs, "prompt");
@@ -3246,36 +3233,33 @@
       return { resolved: false, text: "" };
     }
 
-    function findComfyUpstreamNode(graph, value, predicate, seen = new Set()) {
-      const ref = parseComfyReference(value);
-      if (!ref) return null;
-      const marker = `${ref.nodeId}:${ref.outputSlot}`;
-      if (seen.has(marker)) return null;
-      const nextSeen = new Set(seen);
-      nextSeen.add(marker);
-
-      const node = graph?.[ref.nodeId];
-      if (!node || typeof node !== "object") return null;
-      if (predicate(node, ref)) return { id: ref.nodeId, node, outputSlot: ref.outputSlot };
-
-      const inputs = node.inputs || {};
-      if (String(node.class_type || "") === "ComfySwitchNode") {
-        const enabled = comfySwitchEnabled(inputs.switch);
-        const active = enabled ? inputs.on_true : inputs.on_false;
-        const activeHit = findComfyUpstreamNode(graph, active, predicate, nextSeen);
-        if (activeHit) return activeHit;
+    // All upstream consumers must agree on the one active switch edge.
+    function activeComfyInputs(graph, node) {
+      const inputs = node?.inputs || {};
+      if (String(node?.class_type || "") === "ComfySwitchNode") {
+        const selected = resolveComfyScalarValue(graph, inputs.switch);
+        if (selected == null) return [];
+        return [comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false];
       }
-
       const preferred = ["model", "unet", "clip", "vae", "conditioning", "positive", "negative", "samples", "latent_image", "image", "images"];
-      for (const inputName of preferred) {
-        if (!Object.prototype.hasOwnProperty.call(inputs, inputName)) continue;
-        const hit = findComfyUpstreamNode(graph, inputs[inputName], predicate, nextSeen);
-        if (hit) return hit;
-      }
-      for (const inputValue of Object.values(inputs)) {
-        if (!parseComfyReference(inputValue)) continue;
-        const hit = findComfyUpstreamNode(graph, inputValue, predicate, nextSeen);
-        if (hit) return hit;
+      const keys = [...new Set([...preferred, ...Object.keys(inputs)])];
+      return keys.filter(key => Object.prototype.hasOwnProperty.call(inputs, key)).map(key => inputs[key]);
+    }
+
+    function findComfyUpstreamNode(graph, value, predicate, seen = new Set()) {
+      // Iterative DFS: one predicate visit per node/output, including shared DAG paths.
+      const stack = [value];
+      while (stack.length && seen.size < 10000) {
+        const ref = parseComfyReference(stack.pop());
+        if (!ref) continue;
+        const marker = `${ref.nodeId}:${ref.outputSlot}`;
+        if (seen.has(marker)) continue;
+        seen.add(marker);
+        const node = graph?.[ref.nodeId];
+        if (!node || typeof node !== "object") continue;
+        if (predicate(node, ref)) return { id: ref.nodeId, node, outputSlot: ref.outputSlot };
+        const values = activeComfyInputs(graph, node);
+        for (let i = values.length - 1; i >= 0; i--) if (parseComfyReference(values[i])) stack.push(values[i]);
       }
       return null;
     }
@@ -3285,7 +3269,7 @@
       const ref = parseComfyReference(value);
       if (!ref) return null;
       const marker = `${ref.nodeId}:${ref.outputSlot}`;
-      if (seen.has(marker)) return null;
+      if (seen.has(marker) || seen.size >= 256) return null;
       const nextSeen = new Set(seen);
       nextSeen.add(marker);
 
@@ -3293,6 +3277,11 @@
       if (!node || typeof node !== "object") return null;
       const inputs = node.inputs || {};
       const classType = String(node.class_type || "");
+
+      if (classType === "ComfySwitchNode") {
+        const selected = resolveComfyScalarValue(graph, inputs.switch, nextSeen);
+        return selected == null ? null : resolveComfyScalarValue(graph, comfySwitchEnabled(selected) ? inputs.on_true : inputs.on_false, nextSeen);
+      }
 
       if (classType === "ResolutionSelector") {
         const aspect = String(inputs.aspect_ratio || "");
@@ -3386,45 +3375,34 @@
     }
 
     function collectActiveComfyLoras(graph, value, seen = new Set(), output = []) {
-      const ref = parseComfyReference(value);
-      if (!ref) return [...new Set(output)];
-      const marker = `${ref.nodeId}:${ref.outputSlot}`;
-      if (seen.has(marker)) return [...new Set(output)];
-      const nextSeen = new Set(seen);
-      nextSeen.add(marker);
-
-      const node = graph?.[ref.nodeId];
-      if (!node || typeof node !== "object") return [...new Set(output)];
-      const inputs = node.inputs || {};
-      const classType = String(node.class_type || "");
-
-      if (/Power Lora Loader/i.test(classType)) {
-        for (const [inputName, item] of Object.entries(inputs)) {
-          if (!/^lora_/i.test(inputName) || !item || typeof item !== "object" || item.on !== true || !item.lora) continue;
-          output.push(`${item.lora} @${item.strength}`);
+      let current = value;
+      while (seen.size < 10000) {
+        const ref = parseComfyReference(current);
+        if (!ref) break;
+        const marker = `${ref.nodeId}:${ref.outputSlot}`;
+        if (seen.has(marker)) break;
+        seen.add(marker);
+        const node = graph?.[ref.nodeId];
+        if (!node || typeof node !== "object") break;
+        const inputs = node.inputs || {};
+        const classType = String(node.class_type || "");
+        if (classType === "ComfySwitchNode") {
+          current = activeComfyInputs(graph, node)[0];
+          continue;
         }
-      }
-      if (/LoraLoader/i.test(classType) && typeof inputs.lora_name === "string" && Number(inputs.strength_model) !== 0) {
-        output.push(`${inputs.lora_name} @${inputs.strength_model}`);
-      }
-
-      if (parseComfyReference(inputs.model)) {
-        return collectActiveComfyLoras(graph, inputs.model, nextSeen, output);
+        if (/Power Lora Loader/i.test(classType)) {
+          for (const [inputName, item] of Object.entries(inputs)) {
+            if (/^lora_/i.test(inputName) && item && typeof item === "object" && item.on === true && item.lora) output.push(`${item.lora} @${item.strength}`);
+          }
+        }
+        if (/LoraLoader/i.test(classType) && typeof inputs.lora_name === "string" && Number(inputs.strength_model) !== 0) output.push(`${inputs.lora_name} @${inputs.strength_model}`);
+        current = inputs.model;
       }
       return [...new Set(output)];
     }
 
     function comfyLatentSize(graph, sampler) {
-      let latent = sampler?.inputs?.latent_image;
-      const initial = parseComfyReference(latent);
-      if (initial) {
-        const node = graph?.[initial.nodeId];
-        if (String(node?.class_type || "") === "ComfySwitchNode") {
-          const enabled = comfySwitchEnabled(node.inputs?.switch);
-          latent = enabled ? node.inputs?.on_true : node.inputs?.on_false;
-        }
-      }
-
+      const latent = sampler?.inputs?.latent_image;
       const hit = findComfyUpstreamNode(
         graph,
         latent,
@@ -3433,7 +3411,7 @@
       if (!hit) return "";
       const width = resolveComfyScalarValue(graph, hit.node.inputs?.width);
       const height = resolveComfyScalarValue(graph, hit.node.inputs?.height);
-      if (!Number.isFinite(Number(width)) || !Number.isFinite(Number(height))) return "";
+      if (width == null || height == null || !Number.isFinite(Number(width)) || !Number.isFinite(Number(height)) || Number(width) <= 0 || Number(height) <= 0) return "";
       return `${width}x${height}`;
     }
 
@@ -3689,7 +3667,7 @@
       const out = [];
       const quoted = `"${key}"`;
       let index = text.indexOf(quoted);
-      while (index !== -1) {
+      while (index !== -1 && out.length < 8) {
         const start = text.lastIndexOf("{", index);
         const end = findJsonEnd(text, start);
         if (start !== -1 && end !== -1) {
@@ -3705,7 +3683,7 @@
       const out = [];
       const pattern = new RegExp(`(?:^|[\\x00\\n\\r])${key}\\s*:`, "gi");
       let match = pattern.exec(text);
-      while (match) {
+      while (match && out.length < 8) {
         const brace = text.indexOf("{", pattern.lastIndex);
         if (brace !== -1) {
           const end = findJsonEnd(text, brace);
