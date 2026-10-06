@@ -6,7 +6,18 @@ EZ Prompt Viewer は、画像ファイルに保存された ComfyUI / A1111 の�
 
 画像はローカル環境で処理されます。
 
-現在のバージョン: **v1.1.0**
+現在のバージョン: **v1.2.0**
+
+## v1.2.0 主な変更
+
+- 保存された `state_json` から H3 legacy / H3 Reference / Qwen Image 2.1 Character Sheet Designer のプロンプトを再構築し、Summary に使用した固定版コンパイラを表示
+- 公式ネイティブサブグラフ、入れ子のリンク、H3 BasicGuider / SamplerCustomAdvanced の経路に対応
+- メタデータの優先順位、Unicode、有効な分岐、サイズ制限付き JSON 解析を改善
+- 言語変更や整形時も手編集を保持し、古いフォルダ読み込み・Civitai リクエストを中断
+- キャッシュ上限とサムネイルの遅延読み込みでフォルダ表示のメモリ使用量を削減
+- パーサー、Designer、ワークフロー、ブラウザ、Windows パッケージの自動テストを追加
+
+再構築したテキストは明示されます。使用版が不明なコンパイラで実行された原文の完全復元を保証するものではなく、画像にないメタデータは復元できません。
 
 ## v1.1.0 主な変更
 
@@ -25,8 +36,8 @@ EZ Prompt Viewer は、画像ファイルに保存された ComfyUI / A1111 の�
 
 ## ダウンロード
 
-- [EZ Prompt Viewer v1.1.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.1.0)
-- [Windows インストーラ (EXE)](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/download/v1.1.0/EZ-Prompt-Viewer-Setup.exe)
+- [EZ Prompt Viewer v1.2.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.2.0)
+- [Windows インストーラ (EXE)](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/download/v1.2.0/EZ-Prompt-Viewer-Setup.exe)
 
 旧バージョンは [Releases ページ](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases) から引き続き取得できます。
 

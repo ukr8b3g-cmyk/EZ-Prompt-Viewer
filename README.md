@@ -4,7 +4,18 @@
 
 EZ Prompt Viewer is a local Windows desktop app for viewing prompt and generation metadata stored in image files. Images are processed locally on your machine.
 
-Current version: **v1.1.0**
+Current version: **v1.2.0**
+
+## v1.2.0 Highlights
+
+- Reconstruct H3 legacy, H3 Reference, and Qwen Image 2.1 Character Sheet Designer prompts from saved `state_json`, with the pinned compiler version shown in Summary
+- Resolve official native-subgraph workflows, nested links, and H3 BasicGuider / SamplerCustomAdvanced paths
+- Improve metadata source selection, Unicode handling, active switch paths, and bounded JSON parsing
+- Preserve manual edits through language changes and prompt formatting; cancel stale folder and Civitai requests
+- Reduce folder-browsing memory use with bounded metadata caching and lazy thumbnails
+- Add automated parser, Designer, workflow, browser, and Windows package checks
+
+Reconstructed text is labelled explicitly. It does not prove the exact prompt executed by an unknown compiler version, and missing image metadata cannot be recovered.
 
 ## v1.1.0 Highlights
 
@@ -22,8 +33,8 @@ Current version: **v1.1.0**
 
 ## Download
 
-- [EZ Prompt Viewer v1.1.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.1.0)
-- [Windows Installer (EXE)](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/download/v1.1.0/EZ-Prompt-Viewer-Setup.exe)
+- [EZ Prompt Viewer v1.2.0 Release](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/tag/v1.2.0)
+- [Windows Installer (EXE)](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases/download/v1.2.0/EZ-Prompt-Viewer-Setup.exe)
 
 Older releases remain available from the [Releases page](https://github.com/ukr8b3g-cmyk/EZ-Prompt-Viewer/releases).
 

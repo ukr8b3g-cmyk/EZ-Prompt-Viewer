@@ -1,5 +1,5 @@
 // Real Chromium smoke test. No external network or image generation is required.
-const {chromium}=require('playwright-core');
+const {chromium,_electron}=require('playwright-core');
 const fs=require('node:fs');
 const path=require('node:path');
 const {pathToFileURL}=require('node:url');
@@ -7,14 +7,20 @@ const assert=require('node:assert/strict');
 const {png,graph}=require('../tests/helpers/container-fixtures.cjs');
 const candidates=[process.env.CHROME_PATH,'/usr/bin/chromium','/usr/bin/google-chrome','/opt/google/chrome/chrome'].filter(Boolean);
 const executablePath=candidates.find(p=>fs.existsSync(p));
-if(!executablePath)throw new Error('Set CHROME_PATH to an installed Chromium/Chrome executable');
+if(!process.env.ELECTRON_APP_PATH&&!executablePath)throw new Error('Set CHROME_PATH to an installed Chromium/Chrome executable');
 (async()=>{
-  const browser=await chromium.launch({executablePath,headless:true,args:['--no-sandbox']});
-  const page=await browser.newPage({viewport:{width:1280,height:900}});
+  const isElectron=Boolean(process.env.ELECTRON_APP_PATH);
+  const browser=isElectron
+    ? await _electron.launch({executablePath:process.env.ELECTRON_APP_PATH,timeout:30000})
+    : await chromium.launch({executablePath,headless:true,args:['--no-sandbox']});
+  const page=isElectron ? await browser.firstWindow() : await browser.newPage({viewport:{width:1280,height:900}});
   page.setDefaultTimeout(10000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route(/^https?:/,route=>route.abort());
-  await page.goto(pathToFileURL(path.resolve('avif_prompt_viewer.html')).href);
+  if(isElectron){
+    await page.waitForLoadState('domcontentloaded');
+    assert.equal(page.url(),pathToFileURL(path.join(path.dirname(process.env.ELECTRON_APP_PATH),'resources','avif_prompt_viewer.html')).href);
+  }else await page.goto(pathToFileURL(path.resolve('avif_prompt_viewer.html')).href);
   const load=async(name,bytes)=>page.locator('#fileInput').setInputFiles({name,mimeType:'image/png',buffer:bytes});
   await load('utf8.png',png('prompt',Buffer.from(JSON.stringify(graph('美しい猫, café')))));
   await page.waitForFunction(()=>document.querySelector('#positiveText').textContent==='美しい猫, café');
@@ -47,6 +53,6 @@ if(!executablePath)throw new Error('Set CHROME_PATH to an installed Chromium/Chr
   assert.equal(await page.locator('#positiveText').textContent(),'');
   assert.equal(await page.locator('#preview').getAttribute('src'),null);
   assert.deepEqual(errors,[]);
-  console.log('Chromium smoke passed: real PNG decoding, UTF-8, edits, Format, language, theme, H3/Qwen workflow reconstruction, lightbox and Clear');
+  console.log((isElectron?'Installed Electron':'Chromium')+' smoke passed: real PNG decoding, UTF-8, edits, Format, language, theme, H3/Qwen workflow reconstruction, lightbox and Clear');
   await browser.close();
 })().catch(error=>{console.error(error);process.exit(1);});

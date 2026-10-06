@@ -1,6 +1,6 @@
 {
   "name": "ez-prompt-viewer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Windows desktop app for viewing image prompt metadata.",
   "main": "main.js",
   "license": "MIT",

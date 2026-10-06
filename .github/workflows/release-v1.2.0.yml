@@ -1,0 +1,180 @@
+name: Build and release v1.2.0 Windows installer
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - '.github/workflows/release-v1.2.0.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-v1.2.0
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: >-
+      github.repository == 'ukr8b3g-cmyk/EZ-Prompt-Viewer' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'release: v1.2.0')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run check
+      - run: npm test
+        env:
+          DESIGNER_EXHAUSTIVE: '1'
+      - run: npm run test:browser
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+  installer:
+    needs: regression
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run check
+      - run: npm test
+      - name: Build x64 NSIS installer without publishing
+        run: npm run build -- --x64 --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Install and verify the built package on the disposable runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $PWD 'dist/EZ Prompt Viewer Setup.exe'
+          $installDir = Join-Path $env:RUNNER_TEMP 'ez-prompt-viewer-1.2.0'
+          $process = Start-Process -FilePath $installer -ArgumentList '/S','/currentuser',"/D=$installDir" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "NSIS installation failed: $($process.ExitCode)" }
+          node scripts/verify-package.cjs "$installDir"
+          if ($LASTEXITCODE -ne 0) { throw 'Installed resource validation failed' }
+          $app = Join-Path $installDir 'EZ Prompt Viewer.exe'
+          $appInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($app)
+          $setupInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($installer)
+          if ($appInfo.ProductVersion -ne '1.2.0') { throw "Incorrect app version: $($appInfo.ProductVersion)" }
+          if ($setupInfo.ProductVersion -ne '1.2.0') { throw "Incorrect installer version: $($setupInfo.ProductVersion)" }
+          $signature = (Get-AuthenticodeSignature $installer).Status.ToString()
+          if ($signature -ne 'NotSigned') { throw "Unexpected installer signature state: $signature" }
+          $env:ELECTRON_APP_PATH = $app
+          npm run test:browser
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Electron smoke failed' }
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          $asset = 'release-assets/EZ-Prompt-Viewer-Setup.exe'
+          Copy-Item $installer $asset
+          $sha = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$sha  EZ-Prompt-Viewer-Setup.exe" | Set-Content 'release-assets/SHA256SUMS.txt' -Encoding utf8NoBOM
+          @{
+            version = '1.2.0'
+            sourceCommit = $env:GITHUB_SHA
+            architecture = 'x64'
+            installerType = 'NSIS'
+            installerSignature = $signature
+            installerProductVersion = $setupInfo.ProductVersion
+            appProductVersion = $appInfo.ProductVersion
+            size = (Get-Item $asset).Length
+            sha256 = $sha
+            installedResources = 'verified byte-for-byte'
+            installedElectronSmoke = 'passed'
+            manualWindowsTest = 'not performed'
+          } | ConvertTo-Json | Set-Content 'release-assets/build-verification.json' -Encoding utf8NoBOM
+          Get-Content 'release-assets/build-verification.json'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-v1.2.0
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    needs: [regression, installer]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer-v1.2.0
+          path: release-assets
+      - name: Publish only a new v1.2.0 release and verify public downloads
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const crypto = require('node:crypto');
+            const assert = require('node:assert/strict');
+            const {owner, repo} = context.repo;
+            const tag = 'v1.2.0';
+            assert.equal(require('./package.json').version, '1.2.0');
+            assert.equal(require('./package-lock.json').version, '1.2.0');
+            const manifest = JSON.parse(fs.readFileSync('release-assets/build-verification.json'));
+            assert.equal(manifest.sourceCommit, context.sha);
+            assert.equal(manifest.installedElectronSmoke, 'passed');
+            const head = await github.rest.git.getRef({owner, repo, ref:'heads/main'});
+            assert.equal(head.data.object.sha, context.sha, 'Main moved; inspect the newer commit before releasing');
+            const saved = (await github.paginate(github.rest.repos.listReleases,{owner,repo})).map(r=>({
+              id:r.id, tag:r.tag_name, assets:r.assets.map(a=>({id:a.id,name:a.name,size:a.size,digest:a.digest}))
+            }));
+            assert.ok(saved.every(r=>r.tag!==tag), 'Release already exists; never overwrite it');
+            try {
+              await github.rest.git.getRef({owner,repo,ref:`tags/${tag}`});
+              throw new Error('Tag already exists; never overwrite it');
+            } catch(error) { if(error.status!==404) throw error; }
+            const files = ['EZ-Prompt-Viewer-Setup.exe','SHA256SUMS.txt','build-verification.json'];
+            const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+            assert.equal(hash(fs.readFileSync('release-assets/'+files[0])),manifest.sha256);
+            assert.equal(fs.readFileSync('release-assets/SHA256SUMS.txt','utf8').trim(),`${manifest.sha256}  ${files[0]}`);
+            const release = await github.rest.repos.createRelease({
+              owner,repo,tag_name:tag,target_commitish:context.sha,name:`EZ Prompt Viewer ${tag}`,
+              body:fs.readFileSync('docs/releases/v1.2.0.md','utf8'),draft:true,prerelease:false
+            });
+            const assets = [];
+            for(const name of files){
+              const data=fs.readFileSync('release-assets/'+name);
+              const upload=await github.rest.repos.uploadReleaseAsset({owner,repo,release_id:release.data.id,name,data,
+                headers:{'content-type':name.endsWith('.exe')?'application/vnd.microsoft.portable-executable':name.endsWith('.json')?'application/json':'text/plain'}});
+              assert.equal(upload.data.size,data.length);
+              assert.equal(upload.data.digest,'sha256:'+hash(data));
+              assets.push(upload.data);
+            }
+            await github.rest.repos.updateRelease({owner,repo,release_id:release.data.id,draft:false,make_latest:'true'});
+            const tagRef=await github.rest.git.getRef({owner,repo,ref:`tags/${tag}`});
+            assert.equal(tagRef.data.object.sha,context.sha);
+            for(const asset of assets){
+              let response;
+              for(let attempt=0;attempt<6;attempt++){
+                response=await fetch(asset.browser_download_url);
+                if(response.ok)break;
+                if(response.status!==404&&response.status!==503)throw new Error(`Public download failed: ${response.status}`);
+                await new Promise(resolve=>setTimeout(resolve,10000));
+              }
+              assert.ok(response.ok,`Public asset unavailable: ${asset.name}`);
+              const bytes=Buffer.from(await response.arrayBuffer());
+              assert.equal(bytes.length,asset.size);
+              assert.equal('sha256:'+hash(bytes),asset.digest);
+              core.info(`Verified public bytes: ${asset.name} ${bytes.length} ${hash(bytes)}`);
+            }
+            for(const previous of saved){
+              const current=(await github.rest.repos.getRelease({owner,repo,release_id:previous.id})).data;
+              assert.deepEqual({id:current.id,tag:current.tag_name,assets:current.assets.map(a=>({id:a.id,name:a.name,size:a.size,digest:a.digest}))},previous,'Previous release assets changed');
+            }
+            core.info(`Published and verified https://github.com/${owner}/${repo}/releases/tag/${tag}`);
