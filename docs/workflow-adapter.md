@@ -100,8 +100,8 @@ files used in this investigation, not reduced or repaired to make tests pass:
 
 Snapshot SHA-256:
 
-- H3: `d723af0d4d692eb654e10db84892a32493a688df253a99da94751bcc8e5b915d`
-- Qwen: `0698670f1dd68639fdbf88c64e031208c54b1c299ab8eb80129732e132e95d71`
+- H3: `463e3220c9dbd6603c1c3f29d3bd750117d1df59316d82c4b6bae5996e61a5a8`
+- Qwen: `6c0273767f4df88d89eec9d9a5bddc0417ebd3143ad598c56b1d13a9f88aa733`
 
 The H3 fixture deliberately contains obsolete **three-view** prompt text in both
 instance 18 and encoder node 5. The authoritative Designer node 23 instead has

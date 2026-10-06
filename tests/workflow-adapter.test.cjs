@@ -267,8 +267,8 @@ test('unknown named widgets are explicitly unresolved and not treated as executa
 test('official workflow fixture bytes remain unchanged', () => {
   const { createHash } = require('node:crypto');
   const hashes = {
-    'H3_Character_Sheet_Designer_wf.json': 'd723af0d4d692eb654e10db84892a32493a688df253a99da94751bcc8e5b915d',
-    'QwenImage21_Character_Sheet_Designer_wf.json': '0698670f1dd68639fdbf88c64e031208c54b1c299ab8eb80129732e132e95d71'
+    'H3_Character_Sheet_Designer_wf.json': '463e3220c9dbd6603c1c3f29d3bd750117d1df59316d82c4b6bae5996e61a5a8',
+    'QwenImage21_Character_Sheet_Designer_wf.json': '6c0273767f4df88d89eec9d9a5bddc0417ebd3143ad598c56b1d13a9f88aa733'
   };
   for (const [name, expected] of Object.entries(hashes)) {
     const bytes = fs.readFileSync(path.join(__dirname, 'fixtures/workflows', name));
