@@ -62,3 +62,23 @@ test('metadata-free image remains empty', () => {
   const c=parserContext(); const bytes=Buffer.from('89504e470d0a1a0a0000000049454e44ae426082','hex'); const r=c.parseMetadata(bytes,{name:'empty.png'});
   assert.equal(r.records.length,0); assert.equal(r.positive,'');
 });
+test('EXIF fallback reuses UTF-8 and Latin-1 decoding', () => {
+  let calls=0; class Decoder { constructor(label) { this.decoder=new TextDecoder(label); } decode(bytes) { calls++;return this.decoder.decode(bytes); } }
+  parserContext({TextDecoder:Decoder}).addDecodedExifRecords('JPEG EXIF',Buffer.from('plain metadata without a TIFF header'),[]);
+  assert.equal(calls,4);
+});
+for (const encoding of ['utf8','utf16le','utf16be','latin1']) test('fallback preserves '+encoding+' JSON', () => {
+  const c=parserContext();const text=encoding==='latin1'?'café portrait':'美しい猫 café portrait';
+  let bytes=Buffer.from('prompt: '+JSON.stringify(graph(text)),encoding==='utf16be'?'utf16le':encoding);
+  if(encoding==='utf16be')bytes=Buffer.from(bytes).swap16();
+  assert.equal(c.parseMetadata(bytes,{name:'test.bin'}).positive,text);
+});
+test('over-budget metadata is explicit, not silently interpreted as a prefix', () => {
+  const c=parserContext(),g=graph('must not claim extracted');g['3']={class_type:'Note',inputs:{value:'x'.repeat(8*1024*1024)}};
+  const r=c.normalizeRecords([{label:'PNG prompt',value:JSON.stringify(g)}]);assert.equal(r.positive,'');assert.match(r.warnings.join(' '),/limit/);
+});
+test('linked switch boolean is resolved consistently and cycles remain unresolved', () => {
+  const c=parserContext();const g={'1':{class_type:'PrimitiveBoolean',inputs:{value:false}},'2':{class_type:'CLIPTextEncode',inputs:{text:'selected false'}},'3':{class_type:'ComfySwitchNode',inputs:{switch:['1',0],on_false:['2',0],on_true:['missing',0]}},'4':{class_type:'KSampler',inputs:{positive:['3',0]}}};
+  assert.equal(c.extractComfyPromptData(g).positive,'selected false');
+  g['1'].inputs.value=['1',0];assert.equal(c.extractComfyPromptData(g).positive,'');
+});
