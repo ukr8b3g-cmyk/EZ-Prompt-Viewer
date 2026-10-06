@@ -2578,7 +2578,7 @@
         if (type === "tEXt") {
           const nul = bytes.indexOf(0, start);
           if (nul > start && nul < end) {
-            records.push({ label: `PNG ${ascii(bytes, start, nul - start)}`, value: decoder.decode(bytes.slice(nul + 1, end)) });
+            records.push({ label: `PNG ${ascii(bytes, start, nul - start)}`, value: decodeMetadataText(bytes.subarray(nul + 1, end)) });
           }
         }
         if (type === "iTXt") {
@@ -2599,7 +2599,7 @@
         const end = offset + 2 + length;
         if (end > bytes.length) break;
         const segment = bytes.slice(start, end);
-        const text = decoder.decode(segment);
+        const text = decodeMetadataText(segment);
         if (marker === 0xe1 && text.startsWith("Exif")) records.push({ label: "JPEG EXIF", value: text });
         if (marker === 0xe1) addDecodedExifRecords("JPEG EXIF", segment, records);
         if (marker === 0xe1 && text.includes("xmpmeta")) records.push({ label: "JPEG XMP", value: text });
@@ -2618,7 +2618,7 @@
         const end = start + length;
         if (end > bytes.length) break;
         if (type === "EXIF" || type === "XMP ") {
-          records.push({ label: `WEBP ${type.trim()}`, value: decoder.decode(bytes.slice(start, end)) });
+          records.push({ label: `WEBP ${type.trim()}`, value: decodeMetadataText(bytes.subarray(start, end)) });
           if (type === "EXIF") addDecodedExifRecords("WEBP EXIF", bytes.slice(start, end), records);
         }
         offset = end + (length % 2);
@@ -2657,7 +2657,7 @@
       if (!userComment) return "";
 
       const raw = bytes.slice(userComment.offset, userComment.offset + userComment.count);
-      return decodeExifUserComment(raw);
+      return decodeExifUserComment(raw, little);
     }
 
     function findExifTiffStart(bytes) {
@@ -2694,18 +2694,30 @@
       return null;
     }
 
-    function decodeExifUserComment(bytes) {
+    function decodeMetadataText(bytes) {
+      // ComfyUI commonly writes UTF-8 in Latin-1-capable containers. Prefer it
+      // only if valid, preserving the container's Latin-1 fallback otherwise.
+      try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+      catch { return latin1Decoder.decode(bytes); }
+    }
+
+    function decodeExifUserComment(bytes, littleEndian = true) {
       if (!bytes.length) return "";
       const prefix = ascii(bytes, 0, Math.min(8, bytes.length));
-      const body = bytes.slice(8);
+      const body = bytes.subarray(8);
       if (prefix.startsWith("UNICODE")) {
-        const be = body.length > 1 && body[0] === 0 && body[1] !== 0;
-        return trimBinaryText((be ? utf16beDecoder : utf16leDecoder).decode(body));
+        if (startsWith(body, [0xfe, 0xff])) return cleanMetadataText(utf16beDecoder.decode(body));
+        if (startsWith(body, [0xff, 0xfe])) return cleanMetadataText(utf16leDecoder.decode(body));
+        const le = utf16leDecoder.decode(body);
+        const be = utf16beDecoder.decode(body);
+        const marker = /(?:Negative prompt:|Steps:|"prompt"\s*:|"class_type"\s*:)/i;
+        if (marker.test(le) !== marker.test(be)) return cleanMetadataText(marker.test(le) ? le : be);
+        return cleanMetadataText(littleEndian ? le : be);
       }
-      if (prefix.startsWith("ASCII")) return trimBinaryText(decoder.decode(body));
-      const utf8 = trimBinaryText(decoder.decode(bytes));
+      if (prefix.startsWith("ASCII")) return cleanMetadataText(decodeMetadataText(body));
+      const utf8 = cleanMetadataText(decodeMetadataText(bytes));
       if (looksUseful(utf8)) return utf8;
-      const noNull = trimBinaryText(deNullText(latin1Decoder.decode(bytes)));
+      const noNull = cleanMetadataText(deNullText(latin1Decoder.decode(bytes)));
       return looksUseful(noNull) ? noNull : "";
     }
 
@@ -2713,8 +2725,8 @@
       walkBoxes(bytes, 0, bytes.length, "", (box) => {
         if (["Exif", "mime", "xml ", "uuid", "mdat", "ilst", "data"].includes(box.type)) {
           const payload = bytes.slice(box.dataStart, box.end);
-          const text = decoder.decode(payload);
-          if (looksUseful(text)) records.push({ label: `ISOBMFF ${box.path}/${box.type}`, value: trimBinaryText(text) });
+          const text = decodeMetadataText(payload);
+          if (looksUseful(text)) records.push({ label: `ISOBMFF ${box.path}/${box.type}`, value: cleanMetadataText(text) });
         }
       });
     }
@@ -3978,12 +3990,15 @@
       return /workflow|prompt|ComfyUI|Negative prompt|Steps:|Seed:|xmpmeta|Exif/i.test(text);
     }
 
-    function trimBinaryText(text) {
-      return text
+    function cleanMetadataText(text) {
+      return metadataText(text)
         .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]+/g, "\n")
         .replace(/\n{3,}/g, "\n\n")
-        .trim()
-        .slice(0, 200000);
+        .trim();
+    }
+
+    function trimBinaryText(text) {
+      return cleanMetadataText(text).slice(0, 200000);
     }
 
     function deNullText(text) {
