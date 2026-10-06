@@ -2552,6 +2552,7 @@
 
       addStringScan(bytes, records);
       const normalized = normalizeRecords(records);
+      if (bytes.length > 16 * 1024 * 1024) normalized.warnings.push("Fallback text scan limited to the first and last 8 MiB; structured container metadata is still checked.");
 
       if (normalized.positive) detected.push("Positive");
       if (normalized.negative) detected.push("Negative");
@@ -2628,17 +2629,13 @@
       const userComment = parseExifUserComment(bytes);
       if (userComment) records.push({ label: `${label} UserComment`, value: userComment });
 
-      const variants = [
-        decoder.decode(bytes),
-        latin1Decoder.decode(bytes),
-        utf16leDecoder.decode(bytes),
-        utf16beDecoder.decode(bytes),
-        deNullText(decoder.decode(bytes)),
-        deNullText(latin1Decoder.decode(bytes)),
-      ];
+      const bounded = bytes.subarray(0, 8 * 1024 * 1024);
+      const utf8 = decoder.decode(bounded);
+      const latin = latin1Decoder.decode(bounded);
+      const variants = [utf8, latin, utf16leDecoder.decode(bounded), utf16beDecoder.decode(bounded), deNullText(utf8), deNullText(latin)];
       for (const value of variants) {
         if (looksUseful(value) && !records.some((record) => record.value === value)) {
-          records.push({ label: `${label} decoded`, value: trimBinaryText(value) });
+          records.push({ label: `${label} decoded`, value: metadataText(value) });
         }
       }
     }
@@ -2746,37 +2743,29 @@
     }
 
     function addStringScan(bytes, records) {
-      const text = decoder.decode(bytes);
-      const latin = latin1Decoder.decode(bytes);
-      const utf16le = utf16leDecoder.decode(bytes);
-      const utf16be = utf16beDecoder.decode(bytes);
-      const candidates = [
-        ...extractJsonAround(text, "workflow"),
-        ...extractJsonAround(text, "prompt"),
-        ...extractPrefixedJson(text, "workflow"),
-        ...extractPrefixedJson(text, "prompt"),
-        ...extractJsonAround(latin, "workflow"),
-        ...extractJsonAround(latin, "prompt"),
-        ...extractPrefixedJson(latin, "workflow"),
-        ...extractPrefixedJson(latin, "prompt"),
-        ...extractJsonAround(utf16le, "workflow"),
-        ...extractJsonAround(utf16le, "prompt"),
-        ...extractPrefixedJson(utf16le, "workflow"),
-        ...extractPrefixedJson(utf16le, "prompt"),
-        ...extractJsonAround(utf16be, "workflow"),
-        ...extractJsonAround(utf16be, "prompt"),
-        ...extractPrefixedJson(utf16be, "workflow"),
-        ...extractPrefixedJson(utf16be, "prompt"),
-        ...extractA1111(text),
-        ...extractA1111(latin),
-        ...extractA1111(utf16le),
-        ...extractA1111(utf16be),
-        ...extractA1111(deNullText(text)),
-        ...extractA1111(deNullText(latin)),
-      ];
-      for (const candidate of candidates) {
-        if (!records.some((record) => record.value === candidate.value)) {
-          records.push(candidate);
+      // Container metadata is read independently. Fallback scans are capped to the
+      // first/last 8 MiB so large compressed image payloads cannot multiply memory.
+      const limit = 8 * 1024 * 1024;
+      const slices = bytes.length <= limit * 2 ? [bytes] : [bytes.subarray(0, limit), bytes.subarray(bytes.length - limit)];
+      const known = new Set(records.map(record => typeof record.value === "string" ? record.value : JSON.stringify(record.value)));
+      for (const slice of slices) {
+        const decoders = [["utf-8", decoder], ["latin1", latin1Decoder], ["utf-16le", utf16leDecoder], ["utf-16be", utf16beDecoder]];
+        const scanned = new Set();
+        for (const [encoding, textDecoder] of decoders) {
+          const text = textDecoder.decode(slice);
+          if (scanned.has(text)) continue;
+          scanned.add(text);
+          const candidates = [
+            ...extractJsonAround(text, "workflow"), ...extractJsonAround(text, "prompt"),
+            ...extractPrefixedJson(text, "workflow"), ...extractPrefixedJson(text, "prompt"),
+            ...extractA1111(text), ...extractA1111(deNullText(text)),
+          ];
+          for (const candidate of candidates) {
+            if (!known.has(candidate.value)) {
+              known.add(candidate.value);
+              records.push({ ...candidate, encoding });
+            }
+          }
         }
       }
     }
@@ -2789,7 +2778,10 @@
 
     function recordPriority(record) {
       const label = String(record.label || "");
-      if (/^Scan\b/i.test(label)) return 0;
+      if (/^Scan\b/i.test(label)) {
+        const invalid = typeof record.value === "string" && record.value.includes("\uFFFD");
+        return invalid ? -20 : ({ "utf-8": 4, "utf-16le": 2, "utf-16be": 2, latin1: 1 }[record.encoding] || 0);
+      }
       if (isDecodedUserCommentRecord(record)) return 40;
       if (/decoded/i.test(label)) return 10;
       if (/^(PNG|JPEG Comment)/i.test(label)) return 50;
@@ -3100,17 +3092,11 @@
 
     function extractComfyPromptData(graph) {
       const fallbackSettings = {};
-      const samplerEntries = [];
-
-      for (const [id, node] of Object.entries(graph || {})) {
+      const samplerEntries = Object.entries(graph || {}).filter(([, node]) => ["KSampler", "KSamplerAdvanced"].includes(String(node?.class_type || "")));
+      const activeGraph = samplerEntries.length ? collectComfyActiveGraph(graph, samplerEntries.map(([id]) => [id, 0])) : graph;
+      for (const node of Object.values(activeGraph || {})) {
         if (!node || typeof node !== "object") continue;
         const inputs = node.inputs || {};
-        const classType = String(node.class_type || "");
-
-        if (classType === "KSampler" || classType === "KSamplerAdvanced") {
-          samplerEntries.push([id, node]);
-        }
-
         if (isScalarValue(inputs.steps) && fallbackSettings.Steps == null) fallbackSettings.Steps = inputs.steps;
         if (isScalarValue(inputs.cfg) && fallbackSettings["CFG scale"] == null) fallbackSettings["CFG scale"] = inputs.cfg;
         if (isScalarValue(inputs.seed) && fallbackSettings.Seed == null) fallbackSettings.Seed = inputs.seed;
@@ -3185,7 +3171,7 @@
       const model = sampler ? comfyModelNameFromSampler(graph, sampler) : (fallbackSettings.Model || "");
       const textEncoder = comfyTextEncoderName(graph, encoder);
       const vae = sampler ? comfyVaeName(graph, samplerId, encoder) : "";
-      const modelFamily = detectComfyModelFamily(graph, model);
+      const modelFamily = detectComfyModelFamily(activeGraph, model);
       const activeLoras = sampler ? collectActiveComfyLoras(graph, samplerInputs.model) : [];
       const size = sampler ? comfyLatentSize(graph, sampler) : (fallbackSettings.Size || "");
 
@@ -3253,8 +3239,8 @@
 
       const marker = `${ref.nodeId}:${ref.outputSlot}:${polarity}`;
       if (seen.has(marker) || seen.size >= 256) return { resolved: false, text: "" };
-      const nextSeen = new Set(seen);
-      nextSeen.add(marker);
+      seen.add(marker);
+      const nextSeen = seen;
 
       return resolveComfyPromptNode(graph, graph?.[ref.nodeId], ref.outputSlot, polarity, nextSeen);
     }
@@ -3323,6 +3309,24 @@
       return keys.filter(key => Object.prototype.hasOwnProperty.call(inputs, key)).map(key => inputs[key]);
     }
 
+    function collectComfyActiveGraph(graph, roots) {
+      const active = {};
+      const seen = new Set();
+      const stack = [...roots];
+      while (stack.length && seen.size < 10000) {
+        const ref = parseComfyReference(stack.pop());
+        if (!ref) continue;
+        const marker = `${ref.nodeId}:${ref.outputSlot}`;
+        if (seen.has(marker)) continue;
+        seen.add(marker);
+        const node = graph?.[ref.nodeId];
+        if (!node || typeof node !== "object") continue;
+        active[ref.nodeId] = node;
+        for (const value of activeComfyInputs(graph, node)) if (parseComfyReference(value)) stack.push(value);
+      }
+      return active;
+    }
+
     function findComfyUpstreamNode(graph, value, predicate, seen = new Set()) {
       // Iterative DFS: one predicate visit per node/output, including shared DAG paths.
       const stack = [value];
@@ -3347,8 +3351,8 @@
       if (!ref) return null;
       const marker = `${ref.nodeId}:${ref.outputSlot}`;
       if (seen.has(marker) || seen.size >= 256) return null;
-      const nextSeen = new Set(seen);
-      nextSeen.add(marker);
+      seen.add(marker);
+      const nextSeen = seen;
 
       const node = graph?.[ref.nodeId];
       if (!node || typeof node !== "object") return null;
@@ -3427,10 +3431,7 @@
         if (hit) return String(hit.node.inputs?.vae_name || "");
       }
 
-      const vaeLoaders = Object.values(graph || {}).filter(
-        (node) => String(node?.class_type || "") === "VAELoader"
-      );
-      return vaeLoaders.length === 1 ? String(vaeLoaders[0].inputs?.vae_name || "") : "";
+      return "";
     }
 
     function detectComfyModelFamily(graph, modelName) {
@@ -3782,7 +3783,8 @@
       const out = [];
       const quoted = `"${key}"`;
       let index = text.indexOf(quoted);
-      while (index !== -1 && out.length < 8) {
+      let attempts = 0;
+      while (index !== -1 && out.length < 8 && attempts++ < 32) {
         const start = text.lastIndexOf("{", index);
         const end = findJsonEnd(text, start);
         if (start !== -1 && end !== -1) {
@@ -3798,7 +3800,8 @@
       const out = [];
       const pattern = new RegExp(`(?:^|[\\x00\\n\\r])${key}\\s*:`, "gi");
       let match = pattern.exec(text);
-      while (match && out.length < 8) {
+      let attempts = 0;
+      while (match && out.length < 8 && attempts++ < 32) {
         const brace = text.indexOf("{", pattern.lastIndex);
         if (brace !== -1) {
           const end = findJsonEnd(text, brace);

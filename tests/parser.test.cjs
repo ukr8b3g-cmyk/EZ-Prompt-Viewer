@@ -82,3 +82,12 @@ test('linked switch boolean is resolved consistently and cycles remain unresolve
   assert.equal(c.extractComfyPromptData(g).positive,'selected false');
   g['1'].inputs.value=['1',0];assert.equal(c.extractComfyPromptData(g).positive,'');
 });
+test('prompt and scalar no-hit traversal share visited nodes across DAG siblings', () => {
+  const c=parserContext(),g={};for(let i=0;i<16;i++)g[i]={class_type:'PassThrough',inputs:i<15?{positive:[String(i+1),0]}:{}};
+  let visits=0;const original=c.resolveComfyPromptNode;c.resolveComfyPromptNode=(...a)=>{visits++;return original(...a)};
+  assert.equal(c.resolveComfyPromptReference(g,['0',0],'positive').resolved,false);assert.equal(visits,16);
+});
+test('disconnected settings and model family cannot contaminate a rooted sampler', () => {
+  const c=parserContext();const g={s:{class_type:'KSampler',inputs:{positive:['opaque',0]}},opaque:{class_type:'Opaque',inputs:{}},unused:{class_type:'Something',inputs:{steps:99,cfg:8,seed:123,sampler_name:'unused',scheduler:'unused',denoise:0.2}},vae:{class_type:'VAELoader',inputs:{vae_name:'unused.vae'}},clip:{class_type:'CLIPLoader',inputs:{type:'krea2'}}};
+  assert.equal(c.extractComfyPromptData(g).settings,'');
+});
