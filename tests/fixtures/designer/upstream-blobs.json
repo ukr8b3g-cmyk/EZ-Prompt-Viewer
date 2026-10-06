@@ -1,0 +1,13 @@
+{
+  "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/node.py": "7c0ba4a412fd4f37bd2a363d9f3851d3dc85e12b",
+  "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/common/geometry.py": "eb7ca357f9bfe5fbbf530eeabc75e4431de8ef73",
+  "H3-Character-Sheet-Designer/h3_character_sheet/node.py": "a399b12da2237bfb97ebc8e19b6fb09ab8131bc9",
+  "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/common/state.py": "cc6d7ca9e37ed0b5c19581b317c83dd3248590f9",
+  "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/compiler.py": "1e835829b6a413271597f8e412ef248a684077ed",
+  "H3-Character-Sheet-Designer/workflows/H3_Character_Sheet_Designer_wf.json": "ca170a982952093c26274b7db31c774e70b39396",
+  "H3-Character-Sheet-Designer/h3_character_sheet/off_compiler.py": "2a2df0ae42fa9ecad5182732c48e8af3c2807de7",
+  "H3-Character-Sheet-Designer/h3_character_sheet/reference_node.py": "41519a13ddab324855b918a8825f60860b515db3",
+  "H3-Character-Sheet-Designer/h3_character_sheet/reference_compiler.py": "03772877eb4464ffc4e52ef98f1e0e9c60a4149c",
+  "H3-Character-Sheet-Designer/h3_character_sheet/compiler.py": "4a47bfa0ff20cbc10e06bda388cbdd3a96e8a96c",
+  "Qwen-Image-2.1-Character-Sheet-Designer/workflows/QwenImage21_Character_Sheet_Designer_wf.json": "3ea7af84277bc0e068e55b12951b3c13d615f6b0"
+}

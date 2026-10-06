@@ -1,0 +1,20 @@
+{
+  "verified_utc": "2026-10-06",
+  "repositories": {
+    "H3-Character-Sheet-Designer": "652abf0cd185026e986e649086b6189953e8952a",
+    "Qwen-Image-2.1-Character-Sheet-Designer": "277da76a9de9f4b31b8d23d92b2db3694c581bd7"
+  },
+  "files": {
+    "H3-Character-Sheet-Designer/h3_character_sheet/compiler.py": "984b343762bafea0473bddefc1c07d285ced6498e0afde891d1ad73d60940082",
+    "H3-Character-Sheet-Designer/h3_character_sheet/node.py": "5918823058b700201490d11c4fc24d8e6a5b71fa282c31ec4c24984186779676",
+    "H3-Character-Sheet-Designer/h3_character_sheet/off_compiler.py": "521743b478a704304030e88a313760c55576a182d77f8686b798232793066a3f",
+    "H3-Character-Sheet-Designer/h3_character_sheet/reference_compiler.py": "a10d1798e0646315e7a58598812a09fba78d4b406c8a70b11e16f66059b6c44e",
+    "H3-Character-Sheet-Designer/h3_character_sheet/reference_node.py": "e3d4d7d47d14b260555b15478f9917a70be25c391ebfab288439bdbef309fa25",
+    "H3-Character-Sheet-Designer/workflows/H3_Character_Sheet_Designer_wf.json": "463e3220c9dbd6603c1c3f29d3bd750117d1df59316d82c4b6bae5996e61a5a8",
+    "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/common/geometry.py": "6b557ffbdc3d5376b8736285ae732e4d39598fa63f2fa64487bbb7ed4edea96e",
+    "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/common/state.py": "de97d0fc0feb09047fbeb8538de2b57d10d4a1b113f4ad41fccd8f5cfee29407",
+    "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/compiler.py": "a6b7e7abff3c572e675da6247a86ce01df4199e325b6c3772396602d507d9c6b",
+    "Qwen-Image-2.1-Character-Sheet-Designer/qwen_image21_character_sheet/node.py": "02e2dfb2c959990fc9f5af81a2feabba9a1a5f8120536d72d068f3170a3da996",
+    "Qwen-Image-2.1-Character-Sheet-Designer/workflows/QwenImage21_Character_Sheet_Designer_wf.json": "6c0273767f4df88d89eec9d9a5bddc0417ebd3143ad598c56b1d13a9f88aa733"
+  }
+}
