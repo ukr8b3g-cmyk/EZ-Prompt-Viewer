@@ -68,8 +68,8 @@ jobs:
           $app = Join-Path $installDir 'EZ Prompt Viewer.exe'
           $appInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($app)
           $setupInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($installer)
-          if ($appInfo.ProductVersion -ne '1.2.0') { throw "Incorrect app version: $($appInfo.ProductVersion)" }
-          if ($setupInfo.ProductVersion -ne '1.2.0') { throw "Incorrect installer version: $($setupInfo.ProductVersion)" }
+          if ($appInfo.ProductVersion -notmatch '^1\.2\.0(?:\.0)?$') { throw "Incorrect app version: $($appInfo.ProductVersion)" }
+          if ($setupInfo.ProductVersion -notmatch '^1\.2\.0(?:\.0)?$') { throw "Incorrect installer version: $($setupInfo.ProductVersion)" }
           $signature = (Get-AuthenticodeSignature $installer).Status.ToString()
           if ($signature -ne 'NotSigned') { throw "Unexpected installer signature state: $signature" }
           $env:ELECTRON_APP_PATH = $app
