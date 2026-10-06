@@ -199,3 +199,79 @@ test('browser build exposes only WorkflowAdapter without requiring Node', () => 
   assert.equal(typeof context.WorkflowAdapter.toGraph, 'function');
   assert.deepEqual(Object.keys(context), ['WorkflowAdapter']);
 });
+
+test('input budget exhaustion cannot reveal a linked widget hidden beyond the limit', () => {
+  const text = node(1, 'CLIPTextEncode', [input('clip', null, 'CLIP'), input('text', 99)], ['stale']);
+  const { graph, warnings } = adapter.toGraph({ nodes: [text], links: [] }, { maxInputs: 1 });
+  assert.ok(unresolved(graph['wf:1'].inputs._workflow_unresolved_inputs));
+  assert.doesNotMatch(JSON.stringify(graph), /stale/);
+  assert.ok(warnings.some(w => /input budget/i.test(w)));
+});
+
+test('lone surrogate and reserved-string IDs are safe, unambiguous and prototype-neutral', () => {
+  const ids = ['\ud800', '%uD800', '__proto__', 'constructor', 'a/b', 'a%2Fb', '日本語'];
+  const { graph } = adapter.toGraph({ nodes: ids.map(id => node(id, 'PrimitiveString', [], [id])), links: [] });
+  assert.equal(Object.keys(graph).length, ids.length);
+  assert.equal(graph['wf:%uD800'].inputs.value, '\ud800');
+  assert.equal(graph['wf:%25uD800'].inputs.value, '%uD800');
+  assert.equal(graph['wf:__proto__'].inputs.value, '__proto__');
+});
+
+test('duplicate nodes, links and input names do not select an arbitrary source', () => {
+  const workflow = { nodes: [node(1, 'PrimitiveString', [], ['first']), node(1, 'PrimitiveString', [], ['second']), node(2, 'CLIPTextEncode', [input('text', 1)], ['stale'])], links: [link(1, 1, 0, 2, 0)] };
+  assert.ok(unresolved(adapter.toGraph(workflow).graph['wf:2'].inputs.text));
+  workflow.nodes.shift();
+  workflow.links.push(link(1, 1, 0, 2, 0));
+  assert.ok(unresolved(adapter.toGraph(workflow).graph['wf:2'].inputs.text));
+  workflow.links.pop();
+  workflow.nodes[1].inputs.push(input('text', null));
+  assert.ok(unresolved(adapter.toGraph(workflow).graph['wf:2'].inputs.text));
+});
+
+test('subgraph unlinked widgets without an explicit name binding are unresolved', () => {
+  const workflow = nestedWorkflow();
+  workflow.nodes[1].inputs[0].link = null;
+  const { graph, warnings } = adapter.toGraph(workflow);
+  assert.ok(unresolved(graph['wf:2/1/1'].inputs.text));
+  assert.doesNotMatch(JSON.stringify(graph), /stale/);
+  assert.ok(warnings.some(w => /named value required/i.test(w)));
+});
+
+test('local nested definitions and pass-through reroutes are resolved', () => {
+  const workflow = nestedWorkflow();
+  const inner = workflow.definitions.subgraphs.shift();
+  workflow.definitions.subgraphs[0].definitions = { subgraphs: [inner] };
+  inner.nodes[0].type = 'Reroute';
+  const { graph } = adapter.toGraph(workflow);
+  assert.deepEqual(graph['wf:3'].inputs.positive, ['wf:1', 0]);
+});
+
+test('explicit widget.name aliases remain authoritative over saved named and positional text', () => {
+  const aliased = input('displayed_text', 1);
+  aliased.widget.name = 'text';
+  const text = node(2, 'CLIPTextEncode', [aliased], ['stale']);
+  text.widgets_values_named = { text: 'stale named' };
+  const { graph } = adapter.toGraph({ nodes: [node(1, 'PrimitiveString', [], ['active']), text], links: [link(1, 1, 0, 2, 0)] });
+  assert.deepEqual(graph['wf:2'].inputs.text, ['wf:1', 0]);
+  assert.doesNotMatch(JSON.stringify(graph), /stale/);
+});
+
+test('unknown named widgets are explicitly unresolved and not treated as executable prompts', () => {
+  const unknown = node(1, 'UnknownTextNode');
+  unknown.widgets_values_named = { prompt: 'tempting but unsupported' };
+  const { graph } = adapter.toGraph({ nodes: [unknown], links: [] });
+  assert.ok(unresolved(graph['wf:1'].inputs._workflow_unresolved_widgets));
+  assert.doesNotMatch(JSON.stringify(graph), /tempting/);
+});
+
+test('official workflow fixture bytes remain unchanged', () => {
+  const { createHash } = require('node:crypto');
+  const hashes = {
+    'H3_Character_Sheet_Designer_wf.json': 'd723af0d4d692eb654e10db84892a32493a688df253a99da94751bcc8e5b915d',
+    'QwenImage21_Character_Sheet_Designer_wf.json': '0698670f1dd68639fdbf88c64e031208c54b1c299ab8eb80129732e132e95d71'
+  };
+  for (const [name, expected] of Object.entries(hashes)) {
+    const bytes = fs.readFileSync(path.join(__dirname, 'fixtures/workflows', name));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), expected);
+  }
+});
